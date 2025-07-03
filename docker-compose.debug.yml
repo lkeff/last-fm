@@ -1,0 +1,11 @@
+services:
+  lastfm:
+    image: lastfm
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      JAVA_OPTS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005,quiet=y
+    ports:
+      - 4000:4000
+      - 5005:5005
