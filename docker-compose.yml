@@ -1,0 +1,8 @@
+services:
+  lastfm:
+    image: lastfm
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 4000:4000
