@@ -1,0 +1,732 @@
+{
+  "name": "brass-stabs-basic",
+  "description": "Basic Electron Fiddle template for brass stabs experimentation with audio loading, playback, and processing",
+  "version": "1.0.0",
+  "main": `const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const path = require('path');
+const fs = require('fs');
+
+let mainWindow;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1000,
+    height: 700,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    title: 'Brass Stabs Experiment'
+  });
+
+  mainWindow.loadFile('index.html');
+  
+  // Open DevTools for experimentation
+  mainWindow.webContents.openDevTools();
+}
+
+// Sample brass stabs database
+const sampleDatabase = [
+  {
+    id: 1,
+    name: 'Classic Brass Hit',
+    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
+    tags: ['classic', 'hit', 'orchestral'],
+    bpm: 120,
+    key: 'C'
+  },
+  {
+    id: 2,
+    name: 'Modern Brass Stab',
+    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-04.wav',
+    tags: ['modern', 'stab', 'punchy'],
+    bpm: 128,
+    key: 'F'
+  },
+  {
+    id: 3,
+    name: 'Jazz Brass Section',
+    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-03.wav',
+    tags: ['jazz', 'section', 'smooth'],
+    bpm: 110,
+    key: 'Bb'
+  }
+];
+
+// IPC Handlers
+ipcMain.handle('get-brass-samples', async () => {
+  return sampleDatabase;
+});
+
+ipcMain.handle('search-brass-samples', async (event, query) => {
+  const searchTerm = query.toLowerCase();
+  return sampleDatabase.filter(sample => 
+    sample.name.toLowerCase().includes(searchTerm) ||
+    sample.tags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
+    sample.key.toLowerCase().includes(searchTerm)
+  );
+});
+
+ipcMain.handle('add-brass-sample', async (event, sample) => {
+  const newSample = {
+    id: sampleDatabase.length + 1,
+    ...sample,
+    dateAdded: new Date().toISOString()
+  };
+  sampleDatabase.push(newSample);
+  return newSample;
+});
+
+ipcMain.handle('select-audio-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Brass Sample',
+    filters: [
+      { name: 'Audio Files', extensions: ['wav', 'mp3', 'aiff', 'flac', 'ogg'] }
+    ],
+    properties: ['openFile']
+  });
+  
+  if (!result.canceled && result.filePaths.length > 0) {
+    return {
+      path: result.filePaths[0],
+      name: path.basename(result.filePaths[0])
+    };
+  }
+  return null;
+});
+
+app.whenReady().then(createWindow);
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});`,
+  "preload": `const { contextBridge, ipcRenderer } = require('electron');
+
+// Audio processing utilities
+const audioUtils = {
+  // Create audio context for advanced processing
+  createAudioContext: () => {
+    return new (window.AudioContext || window.webkitAudioContext)();
+  },
+  
+  // Load audio buffer from URL
+  loadAudioBuffer: async (audioContext, url) => {
+    try {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      return await audioContext.decodeAudioData(arrayBuffer);
+    } catch (error) {
+      console.error('Error loading audio:', error);
+      throw error;
+    }
+  },
+  
+  // Apply basic effects to audio buffer
+  applyReverb: (audioContext, source, reverbTime = 2) => {
+    const convolver = audioContext.createConvolver();
+    const impulseBuffer = audioContext.createBuffer(2, audioContext.sampleRate * reverbTime, audioContext.sampleRate);
+    
+    for (let channel = 0; channel < impulseBuffer.numberOfChannels; channel++) {
+      const channelData = impulseBuffer.getChannelData(channel);
+      for (let i = 0; i < channelData.length; i++) {
+        channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / channelData.length, 2);
+      }
+    }
+    
+    convolver.buffer = impulseBuffer;
+    source.connect(convolver);
+    return convolver;
+  },
+  
+  // Apply filter to audio
+  applyFilter: (audioContext, source, type = 'lowpass', frequency = 1000) => {
+    const filter = audioContext.createBiquadFilter();
+    filter.type = type;
+    filter.frequency.setValueAtTime(frequency, audioContext.currentTime);
+    source.connect(filter);
+    return filter;
+  }
+};
+
+// Expose APIs to renderer
+contextBridge.exposeInMainWorld('brassStabsAPI', {
+  // Database operations
+  getBrassSamples: () => ipcRenderer.invoke('get-brass-samples'),
+  searchBrassSamples: (query) => ipcRenderer.invoke('search-brass-samples', query),
+  addBrassSample: (sample) => ipcRenderer.invoke('add-brass-sample', sample),
+  selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
+  
+  // Audio utilities
+  audio: audioUtils,
+  
+  // Logging utility
+  log: (message, data) => {
+    console.log('[Brass Stabs]', message, data || '');
+  }
+});`,
+  "renderer": `// Brass Stabs Experiment - Renderer Process
+let audioContext;
+let currentSample = null;
+let loadedBuffers = new Map();
+
+// Initialize audio context
+async function initAudio() {
+  try {
+    audioContext = window.brassStabsAPI.audio.createAudioContext();
+    window.brassStabsAPI.log('Audio context initialized');
+    updateStatus('Audio system ready');
+  } catch (error) {
+    window.brassStabsAPI.log('Error initializing audio:', error);
+    updateStatus('Audio initialization failed', 'error');
+  }
+}
+
+// Update status display
+function updateStatus(message, type = 'info') {
+  const statusEl = document.getElementById('status');
+  if (statusEl) {
+    statusEl.textContent = message;
+    statusEl.className = \`status \${type}\`;
+  }
+}
+
+// Load and display brass samples
+async function loadSamples() {
+  try {
+    const samples = await window.brassStabsAPI.getBrassSamples();
+    const container = document.getElementById('samples-container');
+    
+    container.innerHTML = samples.map(sample => \`
+      <div class="sample-card" data-id="\${sample.id}">
+        <h3>\${sample.name}</h3>
+        <p>Key: \${sample.key} | BPM: \${sample.bpm}</p>
+        <p>Tags: \${sample.tags.join(', ')}</p>
+        <div class="sample-controls">
+          <button onclick="playSample(\${sample.id})" class="play-btn">▶ Play</button>
+          <button onclick="loadSample(\${sample.id})" class="load-btn">Load</button>
+          <button onclick="analyzeSample(\${sample.id})" class="analyze-btn">Analyze</button>
+        </div>
+      </div>
+    \`).join('');
+    
+    window.brassStabsAPI.log('Loaded samples:', samples.length);
+  } catch (error) {
+    window.brassStabsAPI.log('Error loading samples:', error);
+    updateStatus('Failed to load samples', 'error');
+  }
+}
+
+// Play a sample with basic audio
+async function playSample(sampleId) {
+  try {
+    const samples = await window.brassStabsAPI.getBrassSamples();
+    const sample = samples.find(s => s.id === sampleId);
+    
+    if (!sample) {
+      throw new Error('Sample not found');
+    }
+    
+    updateStatus(\`Playing: \${sample.name}\`);
+    
+    // Simple audio playback
+    const audio = new Audio(sample.url);
+    audio.play().catch(error => {
+      window.brassStabsAPI.log('Playback error:', error);
+      updateStatus('Playback failed', 'error');
+    });
+    
+    audio.onended = () => {
+      updateStatus('Playback finished');
+    };
+    
+  } catch (error) {
+    window.brassStabsAPI.log('Error playing sample:', error);
+    updateStatus('Playback error', 'error');
+  }
+}
+
+// Load sample into audio context for processing
+async function loadSample(sampleId) {
+  try {
+    if (!audioContext) {
+      await initAudio();
+    }
+    
+    const samples = await window.brassStabsAPI.getBrassSamples();
+    const sample = samples.find(s => s.id === sampleId);
+    
+    if (!sample) {
+      throw new Error('Sample not found');
+    }
+    
+    updateStatus(\`Loading: \${sample.name}...\`);
+    
+    // Load audio buffer
+    const buffer = await window.brassStabsAPI.audio.loadAudioBuffer(audioContext, sample.url);
+    loadedBuffers.set(sampleId, { sample, buffer });
+    currentSample = sampleId;
+    
+    updateStatus(\`Loaded: \${sample.name} (Duration: \${buffer.duration.toFixed(2)}s)\`);
+    
+    // Enable processing controls
+    document.getElementById('processing-controls').style.display = 'block';
+    document.getElementById('current-sample').textContent = sample.name;
+    
+    window.brassStabsAPI.log('Sample loaded successfully:', sample.name);
+    
+  } catch (error) {
+    window.brassStabsAPI.log('Error loading sample:', error);
+    updateStatus('Failed to load sample', 'error');
+  }
+}
+
+// Analyze sample properties
+async function analyzeSample(sampleId) {
+  try {
+    const sampleData = loadedBuffers.get(sampleId);
+    if (!sampleData) {
+      await loadSample(sampleId);
+      return;
+    }
+    
+    const { sample, buffer } = sampleData;
+    
+    // Basic analysis
+    const analysis = {
+      duration: buffer.duration,
+      sampleRate: buffer.sampleRate,
+      channels: buffer.numberOfChannels,
+      length: buffer.length
+    };
+    
+    // Calculate RMS (rough volume estimation)
+    const channelData = buffer.getChannelData(0);
+    let sum = 0;
+    for (let i = 0; i < channelData.length; i++) {
+      sum += channelData[i] * channelData[i];
+    }
+    analysis.rms = Math.sqrt(sum / channelData.length);
+    
+    // Display analysis
+    const analysisEl = document.getElementById('analysis-results');
+    analysisEl.innerHTML = \`
+      <h3>Analysis: \${sample.name}</h3>
+      <p>Duration: \${analysis.duration.toFixed(2)} seconds</p>
+      <p>Sample Rate: \${analysis.sampleRate} Hz</p>
+      <p>Channels: \${analysis.channels}</p>
+      <p>RMS Level: \${(analysis.rms * 100).toFixed(2)}%</p>
+    \`;
+    analysisEl.style.display = 'block';
+    
+    window.brassStabsAPI.log('Sample analysis:', analysis);
+    
+  } catch (error) {
+    window.brassStabsAPI.log('Error analyzing sample:', error);
+    updateStatus('Analysis failed', 'error');
+  }
+}
+
+// Play loaded sample with effects
+function playWithEffects() {
+  if (!currentSample || !loadedBuffers.has(currentSample)) {
+    updateStatus('No sample loaded', 'error');
+    return;
+  }
+  
+  try {
+    const { buffer } = loadedBuffers.get(currentSample);
+    
+    // Create audio source
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    
+    let output = source;
+    
+    // Apply effects based on UI controls
+    const reverbEnabled = document.getElementById('reverb-toggle').checked;
+    const filterEnabled = document.getElementById('filter-toggle').checked;
+    
+    if (filterEnabled) {
+      const filterFreq = document.getElementById('filter-freq').value;
+      const filter = window.brassStabsAPI.audio.applyFilter(audioContext, output, 'lowpass', filterFreq);
+      output = filter;
+    }
+    
+    if (reverbEnabled) {
+      const reverb = window.brassStabsAPI.audio.applyReverb(audioContext, output);
+      output = reverb;
+    }
+    
+    // Connect to destination and play
+    output.connect(audioContext.destination);
+    source.start();
+    
+    updateStatus('Playing with effects...');
+    
+    source.onended = () => {
+      updateStatus('Playback finished');
+    };
+    
+  } catch (error) {
+    window.brassStabsAPI.log('Error playing with effects:', error);
+    updateStatus('Effects playback failed', 'error');
+  }
+}
+
+// Search samples
+async function searchSamples() {
+  const query = document.getElementById('search-input').value;
+  if (!query.trim()) {
+    loadSamples();
+    return;
+  }
+  
+  try {
+    const results = await window.brassStabsAPI.searchBrassSamples(query);
+    const container = document.getElementById('samples-container');
+    
+    if (results.length === 0) {
+      container.innerHTML = '<p>No samples found matching your search.</p>';
+      return;
+    }
+    
+    container.innerHTML = results.map(sample => \`
+      <div class="sample-card" data-id="\${sample.id}">
+        <h3>\${sample.name}</h3>
+        <p>Key: \${sample.key} | BPM: \${sample.bpm}</p>
+        <p>Tags: \${sample.tags.join(', ')}</p>
+        <div class="sample-controls">
+          <button onclick="playSample(\${sample.id})" class="play-btn">▶ Play</button>
+          <button onclick="loadSample(\${sample.id})" class="load-btn">Load</button>
+          <button onclick="analyzeSample(\${sample.id})" class="analyze-btn">Analyze</button>
+        </div>
+      </div>
+    \`).join('');
+    
+    updateStatus(\`Found \${results.length} samples\`);
+    
+  } catch (error) {
+    window.brassStabsAPI.log('Search error:', error);
+    updateStatus('Search failed', 'error');
+  }
+}
+
+// Add new sample
+async function addNewSample() {
+  try {
+    const file = await window.brassStabsAPI.selectAudioFile();
+    if (!file) return;
+    
+    const name = prompt('Enter sample name:', file.name.replace(/\\.[^/.]+$/, ''));
+    if (!name) return;
+    
+    const tags = prompt('Enter tags (comma-separated):', 'brass, stab');
+    const key = prompt('Enter musical key:', 'C');
+    const bpm = prompt('Enter BPM:', '120');
+    
+    const newSample = {
+      name: name,
+      url: \`file://\${file.path}\`,
+      tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+      key: key || 'C',
+      bpm: parseInt(bpm) || 120
+    };
+    
+    const added = await window.brassStabsAPI.addBrassSample(newSample);
+    updateStatus(\`Added: \${added.name}\`);
+    loadSamples(); // Refresh the list
+    
+  } catch (error) {
+    window.brassStabsAPI.log('Error adding sample:', error);
+    updateStatus('Failed to add sample', 'error');
+  }
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+  loadSamples();
+  updateStatus('Ready to experiment with brass stabs!');
+  
+  // Set up event listeners
+  document.getElementById('search-input').addEventListener('input', searchSamples);
+  document.getElementById('add-sample-btn').addEventListener('click', addNewSample);
+  document.getElementById('play-effects-btn').addEventListener('click', playWithEffects);
+});`,
+  "html": `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎺 Brass Stabs Experiment</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+      color: #ffffff;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .status {
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    
+    .status.info {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid #4caf50;
+    }
+    
+    .status.error {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid #f44336;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .search-container {
+      flex: 1;
+      min-width: 200px;
+    }
+    
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-size: 16px;
+    }
+    
+    input[type="text"]::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+    
+    button {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 5px;
+      background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .play-btn {
+      background: linear-gradient(45deg, #56ab2f 0%, #a8e6cf 100%);
+    }
+    
+    .load-btn {
+      background: linear-gradient(45deg, #3498db 0%, #2980b9 100%);
+    }
+    
+    .analyze-btn {
+      background: linear-gradient(45deg, #e74c3c 0%, #c0392b 100%);
+    }
+    
+    .samples-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .sample-card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+    }
+    
+    .sample-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+    
+    .sample-card h3 {
+      margin-bottom: 10px;
+      color: #4ecdc4;
+    }
+    
+    .sample-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .sample-controls button {
+      flex: 1;
+      min-width: 80px;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+    
+    .processing-section {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .processing-controls {
+      display: none;
+    }
+    
+    .effect-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    
+    .effect-control label {
+      min-width: 100px;
+    }
+    
+    input[type="range"] {
+      flex: 1;
+      margin: 0 10px;
+    }
+    
+    input[type="checkbox"] {
+      transform: scale(1.2);
+    }
+    
+    .analysis-results {
+      display: none;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 5px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+    
+    .current-sample {
+      font-size: 18px;
+      font-weight: bold;
+      color: #4ecdc4;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎺 Brass Stabs Experiment</h1>
+    <p>Load, play, and process brass stab samples with real-time audio effects</p>
+    <div id="status" class="status info">Initializing...</div>
+  </div>
+  
+  <div class="controls">
+    <div class="search-container">
+      <input type="text" id="search-input" placeholder="Search samples by name, tag, or key...">
+    </div>
+    <button id="add-sample-btn">+ Add Sample</button>
+  </div>
+  
+  <div id="samples-container" class="samples-grid">
+    <!-- Samples will be loaded here -->
+  </div>
+  
+  <div class="processing-section">
+    <h2>🎛️ Audio Processing</h2>
+    
+    <div id="processing-controls" class="processing-controls">
+      <div class="current-sample">
+        Current Sample: <span id="current-sample">None</span>
+      </div>
+      
+      <div class="effect-control">
+        <label>
+          <input type="checkbox" id="reverb-toggle"> Reverb
+        </label>
+      </div>
+      
+      <div class="effect-control">
+        <label>
+          <input type="checkbox" id="filter-toggle"> Low-pass Filter
+        </label>
+        <input type="range" id="filter-freq" min="100" max="5000" value="1000">
+        <span id="filter-freq-display">1000 Hz</span>
+      </div>
+      
+      <button id="play-effects-btn">▶ Play with Effects</button>
+    </div>
+    
+    <div id="analysis-results" class="analysis-results">
+      <!-- Analysis results will appear here -->
+    </div>
+  </div>
+  
+  <script>
+    // Update filter frequency display
+    document.getElementById('filter-freq').addEventListener('input', (e) => {
+      document.getElementById('filter-freq-display').textContent = e.target.value + ' Hz';
+    });
+  </script>
+  
+  <script src="renderer.js"></script>
+</body>
+</html>`,
+  "dependencies": {
+    "electron": "^latest"
+  },
+  "tags": ["brass", "stabs", "audio", "processing", "samples", "music", "production"],
+  "category": "audio-processing",
+  "difficulty": "intermediate",
+  "features": [
+    "Audio sample loading and playback",
+    "Real-time audio effects (reverb, filtering)",
+    "Sample database management",
+    "Audio analysis and visualization",
+    "File selection and import",
+    "Search and filtering capabilities"
+  ],
+  "instructions": "This fiddle demonstrates brass stabs experimentation in Electron. Load samples, apply effects, and analyze audio properties. Use the search function to find specific samples, and experiment with real-time audio processing using the Web Audio API."
+}

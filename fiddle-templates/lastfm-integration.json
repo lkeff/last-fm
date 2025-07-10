@@ -1,0 +1,889 @@
+{
+  "name": "lastfm-integration",
+  "description": "Demonstrates Last.fm API integration for music discovery and brass stabs correlation",
+  "version": "1.0.0",
+  "main": `// Main process for Last.fm integration and brass stabs correlation
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+
+// Last.fm API integration
+const LastFM = require('last-fm');
+const API_KEY = 'YOUR_LASTFM_API_KEY'; // Replace with your actual API key
+
+let lastfm;
+let mainWindow;
+
+// Initialize Last.fm client
+function initializeLastFM() {
+  try {
+    lastfm = new LastFM(API_KEY);
+    console.log('Last.fm client initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize Last.fm client:', error.message);
+  }
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1000,
+    height: 700,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  mainWindow.loadFile('index.html');
+  
+  // Open DevTools for experimentation
+  mainWindow.webContents.openDevTools();
+}
+
+app.whenReady().then(() => {
+  initializeLastFM();
+  createWindow();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+// IPC handlers for Last.fm API calls
+ipcMain.handle('search-artists', async (event, query) => {
+  if (!lastfm) {
+    throw new Error('Last.fm client not initialized');
+  }
+  
+  return new Promise((resolve, reject) => {
+    lastfm.artistSearch({ q: query, limit: 10 }, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+});
+
+ipcMain.handle('get-artist-info', async (event, artistName) => {
+  if (!lastfm) {
+    throw new Error('Last.fm client not initialized');
+  }
+  
+  return new Promise((resolve, reject) => {
+    lastfm.artistInfo({ name: artistName }, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+});
+
+ipcMain.handle('get-artist-top-tracks', async (event, artistName) => {
+  if (!lastfm) {
+    throw new Error('Last.fm client not initialized');
+  }
+  
+  return new Promise((resolve, reject) => {
+    lastfm.artistTopTracks({ name: artistName, limit: 20 }, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+});
+
+ipcMain.handle('search-brass-related-music', async (event, query) => {
+  if (!lastfm) {
+    throw new Error('Last.fm client not initialized');
+  }
+  
+  // Search for music with brass-related tags
+  const brassTerms = ['brass', 'horn', 'trumpet', 'trombone', 'jazz', 'funk', 'soul'];
+  const searchQuery = query + ' ' + brassTerms.join(' OR ');
+  
+  return new Promise((resolve, reject) => {
+    lastfm.search({ q: searchQuery, limit: 15 }, (err, data) => {
+      if (err) reject(err);
+      else {
+        // Filter results to prioritize brass-related content
+        const filtered = {
+          ...data,
+          result: {
+            ...data.result,
+            artists: data.result.artists.filter(artist => 
+              brassTerms.some(term => 
+                artist.name.toLowerCase().includes(term) ||
+                (artist.tags && artist.tags.some(tag => tag.toLowerCase().includes(term)))
+              )
+            ),
+            tracks: data.result.tracks.filter(track =>
+              brassTerms.some(term =>
+                track.name.toLowerCase().includes(term) ||
+                track.artistName.toLowerCase().includes(term)
+              )
+            )
+          }
+        };
+        resolve(filtered);
+      }
+    });
+  });
+});
+
+ipcMain.handle('get-track-info', async (event, trackName, artistName) => {
+  if (!lastfm) {
+    throw new Error('Last.fm client not initialized');
+  }
+  
+  return new Promise((resolve, reject) => {
+    lastfm.trackInfo({ name: trackName, artistName: artistName }, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+});
+
+ipcMain.handle('get-similar-artists', async (event, artistName) => {
+  if (!lastfm) {
+    throw new Error('Last.fm client not initialized');
+  }
+  
+  return new Promise((resolve, reject) => {
+    lastfm.artistSimilar({ name: artistName, limit: 10 }, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+});
+
+// Brass stabs correlation analysis
+ipcMain.handle('analyze-brass-correlation', async (event, artistName) => {
+  try {
+    const [artistInfo, topTracks] = await Promise.all([
+      new Promise((resolve, reject) => {
+        lastfm.artistInfo({ name: artistName }, (err, data) => {
+          if (err) reject(err);
+          else resolve(data);
+        });
+      }),
+      new Promise((resolve, reject) => {
+        lastfm.artistTopTracks({ name: artistName, limit: 20 }, (err, data) => {
+          if (err) reject(err);
+          else resolve(data);
+        });
+      })
+    ]);
+    
+    // Analyze tags and genres for brass correlation
+    const brassIndicators = ['jazz', 'funk', 'soul', 'hip hop', 'r&b', 'brass', 'horn', 'big band'];
+    const artistTags = artistInfo.tags || [];
+    
+    const brassScore = artistTags.filter(tag => 
+      brassIndicators.some(indicator => tag.toLowerCase().includes(indicator))
+    ).length;
+    
+    const trackAnalysis = topTracks.result.map(track => ({
+      ...track,
+      brassLikelihood: brassIndicators.some(indicator => 
+        track.name.toLowerCase().includes(indicator)
+      ) ? 'high' : 'medium'
+    }));
+    
+    return {
+      artist: artistInfo,
+      brassScore,
+      brassLikelihood: brassScore > 2 ? 'high' : brassScore > 0 ? 'medium' : 'low',
+      tracks: trackAnalysis,
+      recommendations: brassScore > 0 ? 
+        'This artist likely uses brass elements. Consider searching for brass stabs in similar genres.' :
+        'Limited brass correlation detected. Try searching for remixes or covers that might include brass elements.'
+    };
+  } catch (error) {
+    throw new Error('Failed to analyze brass correlation: ' + error.message);
+  }
+});`,
+  "renderer": `// Renderer process for Last.fm integration and brass stabs correlation
+console.log('Last.fm Integration Fiddle loaded!');
+
+let currentResults = null;
+
+// DOM elements
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const resultsDiv = document.getElementById('results');
+const brassAnalysisDiv = document.getElementById('brassAnalysis');
+const loadingDiv = document.getElementById('loading');
+
+// Event listeners
+searchBtn.addEventListener('click', performSearch);
+searchInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') performSearch();
+});
+
+// Search functionality
+async function performSearch() {
+  const query = searchInput.value.trim();
+  if (!query) return;
+  
+  showLoading(true);
+  clearResults();
+  
+  try {
+    console.log('Searching for:', query);
+    const results = await window.lastfmAPI.searchArtists(query);
+    displayArtistResults(results);
+  } catch (error) {
+    displayError('Search failed: ' + error.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+// Display artist search results
+function displayArtistResults(data) {
+  if (!data.result || !data.result.length) {
+    resultsDiv.innerHTML = '<p>No artists found.</p>';
+    return;
+  }
+  
+  const artistsHtml = data.result.map(artist => \`
+    <div class="artist-card" onclick="selectArtist('\${artist.name}')">
+      <h3>\${artist.name}</h3>
+      <p>Listeners: \${artist.listeners?.toLocaleString() || 'Unknown'}</p>
+      <div class="artist-images">
+        \${artist.images?.slice(0, 1).map(img => \`<img src="\${img}" alt="\${artist.name}" />\`).join('') || ''}
+      </div>
+    </div>
+  \`).join('');
+  
+  resultsDiv.innerHTML = \`
+    <h2>Artists Found:</h2>
+    <div class="artists-grid">\${artistsHtml}</div>
+  \`;
+}
+
+// Select an artist for detailed analysis
+async function selectArtist(artistName) {
+  showLoading(true);
+  
+  try {
+    console.log('Analyzing artist:', artistName);
+    
+    // Get comprehensive artist data
+    const [artistInfo, topTracks, brassAnalysis] = await Promise.all([
+      window.lastfmAPI.getArtistInfo(artistName),
+      window.lastfmAPI.getArtistTopTracks(artistName),
+      window.lastfmAPI.analyzeBrassCorrelation(artistName)
+    ]);
+    
+    displayArtistDetails(artistInfo, topTracks, brassAnalysis);
+    
+  } catch (error) {
+    displayError('Failed to get artist details: ' + error.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+// Display detailed artist information with brass correlation
+function displayArtistDetails(artistInfo, topTracks, brassAnalysis) {
+  // Artist info section
+  const artistHtml = \`
+    <div class="artist-details">
+      <h2>\${artistInfo.name}</h2>
+      <div class="artist-meta">
+        <p><strong>Listeners:</strong> \${artistInfo.listeners?.toLocaleString()}</p>
+        <p><strong>Tags:</strong> \${artistInfo.tags?.join(', ') || 'None'}</p>
+      </div>
+      \${artistInfo.images?.length ? \`<img src="\${artistInfo.images[0]}" alt="\${artistInfo.name}" class="artist-image" />\` : ''}
+      \${artistInfo.summary ? \`<div class="artist-bio"><p>\${artistInfo.summary}</p></div>\` : ''}
+    </div>
+  \`;
+  
+  // Top tracks section
+  const tracksHtml = \`
+    <div class="top-tracks">
+      <h3>Top Tracks:</h3>
+      <div class="tracks-list">
+        \${topTracks.result.slice(0, 10).map(track => \`
+          <div class="track-item" onclick="analyzeTrack('\${track.name}', '\${track.artistName}')">
+            <span class="track-name">\${track.name}</span>
+            <span class="track-listeners">\${track.listeners?.toLocaleString() || 'Unknown'} listeners</span>
+          </div>
+        \`).join('')}
+      </div>
+    </div>
+  \`;
+  
+  resultsDiv.innerHTML = artistHtml + tracksHtml;
+  
+  // Brass correlation analysis
+  displayBrassAnalysis(brassAnalysis);
+}
+
+// Display brass correlation analysis
+function displayBrassAnalysis(analysis) {
+  const likelihoodColor = {
+    'high': '#4CAF50',
+    'medium': '#FF9800',
+    'low': '#F44336'
+  };
+  
+  const analysisHtml = \`
+    <div class="brass-analysis">
+      <h3>🎺 Brass Stabs Correlation Analysis</h3>
+      <div class="correlation-score">
+        <div class="score-indicator" style="background-color: \${likelihoodColor[analysis.brassLikelihood]}">
+          <span class="score-label">Brass Likelihood: \${analysis.brassLikelihood.toUpperCase()}</span>
+          <span class="score-value">Score: \${analysis.brassScore}/10</span>
+        </div>
+      </div>
+      
+      <div class="recommendations">
+        <h4>Recommendations:</h4>
+        <p>\${analysis.recommendations}</p>
+      </div>
+      
+      <div class="track-analysis">
+        <h4>Track Analysis:</h4>
+        \${analysis.tracks.slice(0, 5).map(track => \`
+          <div class="track-brass-item">
+            <span class="track-name">\${track.name}</span>
+            <span class="brass-likelihood \${track.brassLikelihood}">\${track.brassLikelihood} brass potential</span>
+          </div>
+        \`).join('')}
+      </div>
+      
+      <div class="brass-search-suggestions">
+        <h4>Suggested Brass Stab Searches:</h4>
+        <div class="search-suggestions">
+          <button onclick="searchBrassStabs('\${analysis.artist.name} brass')">"\${analysis.artist.name} brass"</button>
+          <button onclick="searchBrassStabs('jazz brass stabs')">Jazz Brass Stabs</button>
+          <button onclick="searchBrassStabs('funk horn section')">Funk Horn Section</button>
+          <button onclick="searchBrassStabs('soul brass hits')">Soul Brass Hits</button>
+        </div>
+      </div>
+    </div>
+  \`;
+  
+  brassAnalysisDiv.innerHTML = analysisHtml;
+}
+
+// Analyze individual track
+async function analyzeTrack(trackName, artistName) {
+  try {
+    console.log('Analyzing track:', trackName, 'by', artistName);
+    const trackInfo = await window.lastfmAPI.getTrackInfo(trackName, artistName);
+    
+    // Display track details in a modal or expanded view
+    const trackModal = \`
+      <div class="track-modal">
+        <div class="track-modal-content">
+          <span class="close" onclick="closeTrackModal()">&times;</span>
+          <h3>\${trackInfo.name}</h3>
+          <p><strong>Artist:</strong> \${trackInfo.artistName}</p>
+          <p><strong>Album:</strong> \${trackInfo.albumName || 'Unknown'}</p>
+          <p><strong>Duration:</strong> \${trackInfo.duration ? Math.floor(trackInfo.duration / 60) + ':' + (trackInfo.duration % 60).toString().padStart(2, '0') : 'Unknown'}</p>
+          <p><strong>Listeners:</strong> \${trackInfo.listeners?.toLocaleString()}</p>
+          <p><strong>Tags:</strong> \${trackInfo.tags?.join(', ') || 'None'}</p>
+          \${trackInfo.images?.length ? \`<img src="\${trackInfo.images[0]}" alt="\${trackInfo.name}" />\` : ''}
+        </div>
+      </div>
+    \`;
+    
+    document.body.insertAdjacentHTML('beforeend', trackModal);
+  } catch (error) {
+    console.error('Failed to analyze track:', error);
+  }
+}
+
+// Close track modal
+function closeTrackModal() {
+  const modal = document.querySelector('.track-modal');
+  if (modal) modal.remove();
+}
+
+// Search for brass stabs (placeholder - would integrate with actual brass stabs database)
+function searchBrassStabs(query) {
+  console.log('Searching for brass stabs:', query);
+  alert(\`Searching for brass stabs: "\${query}"\nThis would integrate with your brass stabs database or Freesound API.\`);
+}
+
+// Utility functions
+function showLoading(show) {
+  loadingDiv.style.display = show ? 'block' : 'none';
+}
+
+function clearResults() {
+  resultsDiv.innerHTML = '';
+  brassAnalysisDiv.innerHTML = '';
+}
+
+function displayError(message) {
+  resultsDiv.innerHTML = \`<div class="error">❌ \${message}</div>\`;
+}
+
+// Demo functionality
+function runDemo() {
+  console.log('Running Last.fm + Brass Stabs demo...');
+  
+  // Demo with a brass-heavy artist
+  searchInput.value = 'Earth Wind Fire';
+  performSearch();
+}
+
+// Initialize demo
+setTimeout(() => {
+  console.log('🎺 Last.fm Integration Fiddle Ready!');
+  console.log('Try searching for artists like "Earth Wind Fire", "James Brown", or "Tower of Power"');
+  console.log('Click "Run Demo" to see brass correlation analysis in action');
+}, 1000);`,
+  "preload": `// Preload script for Last.fm integration
+const { contextBridge, ipcRenderer } = require('electron');
+
+// Expose Last.fm API to renderer process
+contextBridge.exposeInMainWorld('lastfmAPI', {
+  searchArtists: (query) => ipcRenderer.invoke('search-artists', query),
+  getArtistInfo: (artistName) => ipcRenderer.invoke('get-artist-info', artistName),
+  getArtistTopTracks: (artistName) => ipcRenderer.invoke('get-artist-top-tracks', artistName),
+  searchBrassRelatedMusic: (query) => ipcRenderer.invoke('search-brass-related-music', query),
+  getTrackInfo: (trackName, artistName) => ipcRenderer.invoke('get-track-info', trackName, artistName),
+  getSimilarArtists: (artistName) => ipcRenderer.invoke('get-similar-artists', artistName),
+  analyzeBrassCorrelation: (artistName) => ipcRenderer.invoke('analyze-brass-correlation', artistName)
+});
+
+// Utility functions
+contextBridge.exposeInMainWorld('utils', {
+  log: (message) => console.log('LastFM Fiddle:', message),
+  formatNumber: (num) => num?.toLocaleString() || 'Unknown'
+});`,
+  "html": `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎺 Last.fm + Brass Stabs Integration</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .header p {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+    
+    .search-section {
+      background: rgba(255,255,255,0.1);
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .search-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    #searchInput {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+    }
+    
+    #searchBtn, .demo-btn {
+      padding: 12px 24px;
+      background: #ff6b35;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    
+    #searchBtn:hover, .demo-btn:hover {
+      background: #e55a2b;
+    }
+    
+    .demo-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .demo-btn {
+      background: #4CAF50;
+      font-size: 14px;
+      padding: 8px 16px;
+    }
+    
+    .demo-btn:hover {
+      background: #45a049;
+    }
+    
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .results-section, .analysis-section {
+      background: rgba(255,255,255,0.1);
+      padding: 20px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      min-height: 400px;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      font-size: 18px;
+    }
+    
+    .loading::after {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 10px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .artists-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    
+    .artist-card {
+      background: rgba(255,255,255,0.1);
+      padding: 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+      text-align: center;
+    }
+    
+    .artist-card:hover {
+      transform: translateY(-2px);
+      background: rgba(255,255,255,0.2);
+    }
+    
+    .artist-card h3 {
+      margin-bottom: 8px;
+      font-size: 1.1em;
+    }
+    
+    .artist-card img {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      margin-top: 10px;
+    }
+    
+    .artist-details {
+      margin-bottom: 20px;
+    }
+    
+    .artist-details h2 {
+      font-size: 1.8em;
+      margin-bottom: 10px;
+      color: #ff6b35;
+    }
+    
+    .artist-meta p {
+      margin-bottom: 5px;
+    }
+    
+    .artist-image {
+      width: 100px;
+      height: 100px;
+      border-radius: 10px;
+      margin: 10px 0;
+    }
+    
+    .artist-bio {
+      margin-top: 15px;
+      padding: 15px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 5px;
+      font-size: 0.9em;
+      line-height: 1.4;
+    }
+    
+    .top-tracks h3 {
+      margin-bottom: 15px;
+      color: #ff6b35;
+    }
+    
+    .track-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      margin-bottom: 5px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .track-item:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    
+    .track-name {
+      font-weight: bold;
+    }
+    
+    .track-listeners {
+      font-size: 0.9em;
+      opacity: 0.8;
+    }
+    
+    .brass-analysis {
+      background: rgba(255,215,0,0.1);
+      padding: 20px;
+      border-radius: 10px;
+      border: 2px solid rgba(255,215,0,0.3);
+    }
+    
+    .brass-analysis h3 {
+      color: #FFD700;
+      margin-bottom: 15px;
+      font-size: 1.4em;
+    }
+    
+    .correlation-score {
+      margin-bottom: 20px;
+    }
+    
+    .score-indicator {
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    .score-label {
+      display: block;
+      font-size: 1.1em;
+      margin-bottom: 5px;
+    }
+    
+    .score-value {
+      font-size: 1.3em;
+    }
+    
+    .recommendations {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 5px;
+    }
+    
+    .recommendations h4 {
+      color: #FFD700;
+      margin-bottom: 10px;
+    }
+    
+    .track-analysis h4 {
+      color: #FFD700;
+      margin-bottom: 10px;
+    }
+    
+    .track-brass-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      margin-bottom: 5px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 5px;
+    }
+    
+    .brass-likelihood.high {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    
+    .brass-likelihood.medium {
+      color: #FF9800;
+      font-weight: bold;
+    }
+    
+    .brass-likelihood.low {
+      color: #F44336;
+      font-weight: bold;
+    }
+    
+    .search-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .search-suggestions button {
+      padding: 8px 12px;
+      background: #ff6b35;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.2s;
+    }
+    
+    .search-suggestions button:hover {
+      background: #e55a2b;
+    }
+    
+    .track-modal {
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .track-modal-content {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      padding: 30px;
+      border-radius: 10px;
+      max-width: 500px;
+      width: 90%;
+      position: relative;
+      color: white;
+    }
+    
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+    }
+    
+    .close:hover {
+      color: #ff6b35;
+    }
+    
+    .error {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid #F44336;
+      color: #F44336;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .search-container {
+        flex-direction: column;
+      }
+      
+      .demo-controls {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎺 Last.fm + Brass Stabs Integration</h1>
+      <p>Discover music and correlate with brass stabs samples</p>
+    </div>
+    
+    <div class="search-section">
+      <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search for artists (e.g., Earth Wind Fire, James Brown, Tower of Power)..." />
+        <button id="searchBtn">Search Artists</button>
+      </div>
+      
+      <div class="demo-controls">
+        <button class="demo-btn" onclick="runDemo()">Run Demo</button>
+        <button class="demo-btn" onclick="searchInput.value='James Brown'; performSearch();">James Brown</button>
+        <button class="demo-btn" onclick="searchInput.value='Tower of Power'; performSearch();">Tower of Power</button>
+        <button class="demo-btn" onclick="searchInput.value='Chicago'; performSearch();">Chicago</button>
+      </div>
+    </div>
+    
+    <div class="content-grid">
+      <div class="results-section">
+        <h2>🎵 Search Results</h2>
+        <div id="loading" class="loading" style="display: none;">Searching...</div>
+        <div id="results"></div>
+      </div>
+      
+      <div class="analysis-section">
+        <h2>🎺 Brass Correlation Analysis</h2>
+        <div id="brassAnalysis">
+          <p style="opacity: 0.7; text-align: center; margin-top: 50px;">
+            Select an artist to analyze brass stabs correlation
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="renderer.js"></script>
+</body>
+</html>`,
+  "dependencies": {
+    "last-fm": "^4.0.0",
+    "axios": "^1.6.0"
+  }
+}
