@@ -1,25 +1,25 @@
 {
   "name": "last-fm",
-  "description": "Simple, robust LastFM API client (for public data)",
+  "description": "Simple, robust LastFM API client (for public data) with enhanced security features",
   "version": "5.3.0",
   "author": {
     "name": "Feross Aboukhadijeh",
     "email": "feross@feross.org",
     "url": "https://feross.org"
   },
+  "security": {
+    "contact": "support@traycer.ai",
+    "policy": "https://traycer.ai/security-policy"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "bugs": {
     "url": "https://github.com/feross/last-fm/issues"
   },
-  "dependencies": {
-    "run-parallel": "^1.1.10",
-    "simple-get": "^4.0.0",
-    "electron": "^25.4.1",
-    "axios": "^1.4.0",
-    "dotenv": "^16.3.1"
-  },
-  "devDependencies": {
-    "standard": "*",
-    "electron-builder": "^24.6.4"
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/feross/last-fm.git"
   },
   "homepage": "https://github.com/feross/last-fm",
   "keywords": [
@@ -37,20 +37,43 @@
     "data",
     "api",
     "last.fm",
-    "last.fm api"
+    "last.fm api",
+    "security",
+    "html-sanitization",
+    "url-validation",
+    "encryption",
+    "afk-guard"
   ],
   "license": "MIT",
   "main": "main.js",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/feross/last-fm.git"
+  "dependencies": {
+    "run-parallel": "^1.1.10",
+    "simple-get": "^4.0.0",
+    "electron": "^25.4.1",
+    "axios": "^1.4.0",
+    "dotenv": "^16.3.1",
+    "dompurify": "^2.4.0",
+    "validator": "^13.9.0",
+    "keytar": "^8.1.0",
+    "helmet": "^7.0.0"
+  },
+  "devDependencies": {
+    "standard": "*",
+    "electron-builder": "^24.6.4",
+    "eslint-plugin-security": "^1.7.1",
+    "npm-audit-ci": "^2.1.0",
+    "dependency-check": "^10.2.0",
+    "snyk": "^1.109.0"
   },
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "test": "standard && node -e \"require('./')\"",
+    "test:security": "eslint --ext .js --plugin security --rule \"security/detect-object-injection:warn\" .",
+    "test": "standard && npm run test:security && node -e \"require('./')\"",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "security-audit": "npm audit && electron-builder --dir --config.nsis.oneClick=false",
+    "build:secure": "npm run security-audit && npm run dist"
   },
   "build": {
     "appId": "com.feross.lastfm",
@@ -58,6 +81,7 @@
     "directories": {
       "output": "dist"
     },
+    "asar": true,
     "files": [
       "main.js",
       "preload.js",
@@ -68,20 +92,42 @@
       "fiddle-templates/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": ".",
+        "to": "resources",
+        "filter": ["!**/.env", "!**/*.env", "!**/.env.example"]
+      }
+    ],
+    "ignore": [
+      "**/*.env",
+      "**/.env.example",
+      "**/certs/**/*"
+    ],
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "signingHashAlgorithms": [
+        "sha256"
+      ],
+      "certificateFile": "certs/win/codesign.pfx",
+      "certificatePassword": "${env:CSC_KEY_PASSWORD}"
     },
     "mac": {
       "target": [
         "dmg"
-      ]
+      ],
+      "identity": "Developer ID Application: Your Name (TEAMID)"
     },
     "linux": {
       "target": [
         "AppImage"
       ]
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://your-download-server.com/releases/"
     }
   },
   "funding": [
