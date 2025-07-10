@@ -1,4 +1,11 @@
-# last-fm [![travis][travis-image]][travis-url] [![npm][npm-image]][npm-url] [![downloads][downloads-image]][downloads-url]
+# last-fm Desktop
+
+[![travis][travis-image]][travis-url] [![npm][npm-image]][npm-url] [![downloads][downloads-image]][downloads-url]
+
+A cross-platform desktop application built with [Electron](https://www.electronjs.org/) that provides:
+- A modern UI for searching Last.fm public music data.
+- Local and online management of brass stab audio samples.
+- Quick-start templates for experimenting in [Electron Fiddle](https://www.electronjs.org/fiddle).
 
 [travis-image]: https://img.shields.io/travis/feross/last-fm/master.svg
 [travis-url]: https://travis-ci.org/feross/last-fm
@@ -7,196 +14,305 @@
 [downloads-image]: https://img.shields.io/npm/dm/last-fm.svg
 [downloads-url]: https://npmjs.org/package/last-fm
 
-### Simple, robust LastFM API client (for public data)
+---
 
-## Install
+## Table of Contents
 
-```
-npm install last-fm
-```
+- [Features](#features)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running the App](#running-the-app)
+- [UI Overview](#ui-overview)
+- [Data Normalization](#data-normalization)
+- [Brass Stabs Management](#brass-stabs-management)
+  - [Local Search](#local-search)
+  - [Online Search (Freesound)](#online-search-freesound)
+  - [Adding Local Samples](#adding-local-samples)
+- [Electron Fiddle Integration](#electron-fiddle-integration)
+- [Building & Packaging](#building--packaging)
+- [Troubleshooting](#troubleshooting)
+- [Legacy Node.js API](#legacy-nodejs-api)
+- [Contributing](#contributing)
+- [License](#license)
+- [References](#references)
 
-## Why this package?
-
-The most useful data on LastFM is the public music data. When building an app that
-incorporates music data from LastFM, lots of functionality provided by the LastFM
-API isn't necessary – authorizing as a user, liking tracks, adding/removing tags,
-getting a list of songs in the user's "library", etc.
-
-This package only provides the LastFM API methods that use GET requests to fetch
-data, making it **smaller and simpler** than the other LastFM libraries.
-
-If this matches your use case, consider using this package.
+---
 
 ## Features
 
-  - Powered by the [LastFM API](http://www.last.fm/api)
-  - Lightweight library, only provides the GET methods from the Last.fm API
+- **Last.fm Search:** Search artists, albums, and tracks via the Last.fm public API.
+- **Local Brass Stabs:** Maintain a local library of brass stab samples (search, add, remove).
+- **Online Brass Stabs:** Query the Freesound API for brass stab samples and view metadata.
+- **File Dialog Support:** Select and import your own audio files (`wav`, `mp3`, `aiff`, `flac`, `ogg`).
+- **Electron Fiddle Templates:** Load and open preconfigured templates for quick prototyping.
+- **Dark Theme UI:** Responsive, professional interface suitable for music production workflows.
+- **Environment Configuration:** Securely manage your API keys via a `.env` file.
+- **Cross-Platform:** Works on Windows, macOS, and Linux.
+- **Pack & Distribute:** Build installers using `electron-builder`.
+- **Data Normalization:** Scale raw metrics across different sources to consistent 0–1 or 0–100 ranges for intuitive comparison and visualization.
 
-## Usage
+---
 
-First, [get an API key](https://www.last.fm/api/account/create) from Last.fm.
+## Installation
 
-```js
-const LastFM = require('last-fm')
-const lastfm = new LastFM('API_KEY', { userAgent: 'MyApp/1.0.0 (http://example.com)' })
+### Prerequisites
 
-lastfm.trackSearch({ q: 'the greatest' }, (err, data) => {
-  if (err) console.error(err)
-  else console.log(data)
-})
+- [Node.js](https://nodejs.org/) v14 or higher  
+- [npm](https://www.npmjs.com/) (bundled with Node.js) or [Yarn](https://yarnpkg.com/)
+
+### Steps
+
+```bash
+# Clone the repository
+git clone https://github.com/feross/last-fm.git
+cd last-fm
+
+# Install dependencies
+npm install
+# or
+yarn install
 ```
 
-## API
+---
 
-### `lastfm = new LastFM(key, [opts])`
+## Configuration
 
-Create a new LastFM API client with the given public API `key`.
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+2. Open `.env` in your editor and set your API keys:
+   ```text
+   LASTFM_API_KEY=your_lastfm_api_key_here
+   FREESOUND_API_KEY=your_freesound_api_key_here
+   ```
+3. Save and close `.env`.
 
-Since all the LastFM calls supported by this module access public data, the secret
-key is not required.
+> **Tip:** Get a Last.fm API key at https://www.last.fm/api/account/create  
+> **Tip:** Get a Freesound API key at https://freesound.org/apiv2/apply/
 
-If `opts` is provided, it can contain the following options:
+---
 
-- `opts.userAgent` - String to use as the `User-Agent` header in http requests
-- `opts.minArtistListeners` - Exclude artist results with fewer than this number of "listeners" (default: `0`)
-- `opts.minTrackListeners` - Exclude track results with fewer than this number of "listeners" (default: `0`)
+## Running the App
 
-Note: Unfortunately, there is no `opts.minAlbumListeners` since the Last.fm API does not
-include listener numbers in album results (even though the data exists when you get an
-individual album via `lastfm.albumInfo`)
+Start the Electron application in development mode:
 
-## Convenience API
+```bash
+npm run dev
+# or
+npm start
+```
 
-These APIs are not part of the LastFM documentation, but they use data from the API
-and process it into a more useful form.
+The app window will open. On macOS, you can also run:
+```bash
+npm run dev
+```
+which sets `NODE_ENV=development` to auto-open DevTools.
 
-### `lastfm.search(opts, (err, data) => {})`
+---
 
-Search for artists, tracks, or albums by name. ([album.search](http://www.last.fm/api/show/album.search), [artist.search](http://www.last.fm/api/show/artist.search), [track.search](http://www.last.fm/api/show/track.search))
+## UI Overview
 
-This returns the "top result" across all result types, prioritizing an exact query
-match, if one exists. Otherwise, the most popular result by number of "listeners"
-is used.
+![App Screenshot](assets/screenshot.png)
 
-- `opts.q` - the search query
-- `opts.limit` - the number of each type of result to fetch
+1. **Last.fm Search Panel**  
+   - Enter artist, track, or album name.  
+   - View paginated results and metadata (listeners, tags, playcount).
 
-## Album API
+2. **Brass Stabs Library**  
+   - **Local Samples:** Search your saved samples by name, tags, or description.  
+   - **Online Samples:** Fetch top brass stabs from Freesound with preview links.
 
-### `lastfm.albumInfo(opts, (err, data) => {})`
+3. **Sample Import Dialog**  
+   - Click **Add Sample** to open a file selection dialog.  
+   - Select one or multiple audio files to import into the local database.
 
-Get the metadata and tracklist for an album on Last.fm using the album name. ([album.getInfo](http://www.last.fm/api/show/album.getInfo))
+4. **Electron Fiddle Templates**  
+   - Browse templates under **Fiddle Templates**.  
+   - Click **Open in Fiddle** to launch or import in Electron Fiddle for rapid prototyping.
 
-### `lastfm.albumTopTags(opts, (err, data) => {})`
+---
 
-Get the top tags for an album on Last.fm, ordered by popularity. ([album.getTopTags](http://www.last.fm/api/show/album.getTopTags))
+## Data Normalization
 
-### `lastfm.albumSearch(opts, (err, data) => {})`
+The application now provides a **Data Normalization** system to bring disparate metrics onto a common scale, improving comparison and visualization across sources.
 
-Search for an album by name. Returns album matches sorted by relevance. ([album.search](http://www.last.fm/api/show/album.search))
+### Metrics Normalized
 
-## Artist API
+- **Last.fm Data:** `listeners`, `playcount`  
+- **Freesound Data:** `duration`, `filesize`, `downloads`  
+- **Local Samples:** `duration`, `filesize`
 
-### `lastfm.artistCorrection(opts, (err, data) => {})`
+### Normalization Modes
 
-Use the last.fm corrections data to check whether the supplied artist has a correction to a canonical artist. ([artist.getCorrection](http://www.last.fm/api/show/artist.getCorrection))
+- **Unit (0–1):** Linear min-max scaling between 0 and 1.  
+- **Percent (0–100):** Linear scaling scaled to percentage values.  
+- **Z-score:** Standard score using mean and standard deviation.  
+- **Robust:** Scaling based on median and interquartile range.
 
-### `lastfm.artistInfo(opts, (err, data) => {})`
+By default, **unit scaling** with two decimal precision is applied.
 
-Get the metadata for an artist. Includes biography, truncated at 300 characters. ([artist.getInfo](http://www.last.fm/api/show/artist.getInfo))
+### Interpreting Normalized Values
 
-### `lastfm.artistSimilar(opts, (err, data) => {})`
+- A **0** (or **0%**) indicates the minimum value in the current dataset.  
+- A **1** (or **100%**) indicates the maximum value.  
+- Values between represent relative position: e.g., a track with a normalized playcount of **0.75** has 75% of the highest playcount in the result set.
 
-Get all the artists similar to this artist ([artist.getSimilar](http://www.last.fm/api/show/artist.getSimilar))
+### Visual Indicators
 
-### `lastfm.artistTopAlbums(opts, (err, data) => {})`
+Normalized values are shown alongside raw data with visual cues:
 
-Get the top albums for an artist on Last.fm, ordered by popularity. ([artist.getTopAlbums](http://www.last.fm/api/show/artist.getTopAlbums))
+- **Progress Bars:** Display 0–100% fill to represent normalized score.  
+- **Color Coding:**  
+  - Green: ≥ 75%  
+  - Yellow: 25%–75%  
+  - Red: < 25%  
+- **Percentage Badges:** Numeric percent displayed next to metrics.  
 
-### `lastfm.artistTopTags(opts, (err, data) => {})`
+![Normalization Example](assets/normalization_example.png)
 
-Get the top tags for an artist on Last.fm, ordered by popularity. ([artist.getTopTags](http://www.last.fm/api/show/artist.getTopTags))
+### Configuration Options
 
-### `lastfm.artistTopTracks(opts, (err, data) => {})`
+Customize normalization behavior in the **Settings > Data Normalization** panel:
 
-Get the top tracks by an artist on Last.fm, ordered by popularity. ([artist.getTopTracks](http://www.last.fm/api/show/artist.getTopTracks))
+- **Mode:** `unit`, `percent`, `zscore`, `robust`  
+- **Decimal Precision:** Number of decimal places for normalized output  
+- **Outlier Handling:** `none`, `iqr`, `zscore`, `modified_zscore`  
+- **Preserve Raw Values:** Toggle display of raw vs. normalized data  
 
-### `lastfm.artistSearch(opts, (err, data) => {})`
+### Methodology
 
-Search for an artist by name. Returns artist matches sorted by relevance. ([artist.search](http://www.last.fm/api/show/artist.search))
+Normalization is implemented in the shared `utils/normalization.js` module:
 
-## Chart API
+1. **Detection & Validation:** Ensures values are numeric and filters invalid entries.  
+2. **Statistics Calculation:** Computes min, max, mean, median, IQR, etc.  
+3. **Scaling:** Applies the selected normalization strategy to each value.  
+4. **Batch Processing:** Processes entire result arrays, attaches metadata (ranges, statistics, outliers).  
+5. **Preservation:** Original raw values are kept alongside normalized fields (`*_original`).
 
-### `lastfm.chartTopArtists(opts, (err, data) => {})`
+See `utils/normalization.js` for full API documentation and examples.
 
-Get the top artists chart. ([chart.getTopArtists](http://www.last.fm/api/show/chart.getTopArtists))
+---
 
-### `lastfm.chartTopTags(opts, (err, data) => {})`
+## Brass Stabs Management
 
-Get the top tags chart. ([chart.getTopTags](http://www.last.fm/api/show/chart.getTopTags))
+### Local Search
 
-### `lastfm.chartTopTracks(opts, (err, data) => {})`
+- Use the **Local Search** tab.  
+- Type your keyword and press **Search**.  
+- Results show sample name, tags, description, duration.
 
-Get the top tracks chart. ([chart.getTopTracks](http://www.last.fm/api/show/chart.getTopTracks))
+### Online Search (Freesound)
 
-## Geo API
+- Switch to **Online Search** tab.  
+- Enter a keyword, press **Search Online**.  
+- Displays Freesound results with preview buttons.
 
-### `lastfm.geoTopArtists(opts, (err, data) => {})`
+### Adding Local Samples
 
-Get the most popular artists on Last.fm by country. ([geo.getTopArtists](http://www.last.fm/api/show/geo.getTopArtists))
+1. Click **Add Sample**.  
+2. In the file dialog, choose audio files.  
+3. Fill in metadata (tags, description) in the add-sample form.  
+4. Click **Save** to persist to the local database.
 
-### `lastfm.geoTopTracks(opts, (err, data) => {})`
+---
 
-Get the most popular tracks on Last.fm last week by country. ([geo.getTopTracks](http://www.last.fm/api/show/geo.getTopTracks))
+## Electron Fiddle Integration
 
-## Tag API
+Under **Fiddle Templates**, you can:
 
-### `lastfm.tagInfo(opts, (err, data) => {})`
+- **View** available templates (JSON definitions in `fiddle-templates/`).  
+- **Open** a template in Electron Fiddle via custom protocol or by showing the file in your system file manager.  
+- **Manual Import**: If Fiddle is not installed, the JSON content is available for manual import.
 
-Get the metadata for a tag. ([tag.getInfo](http://www.last.fm/api/show/tag.getInfo))
+---
 
-### `lastfm.tagSimilar(opts, (err, data) => {})`
+## Building & Packaging
 
-Search for tags similar to this one. Returns tags ranked by similarity, based on listening data. ([tag.getSimilar](http://www.last.fm/api/show/tag.getSimilar))
+Use [`electron-builder`](https://www.electron.build/) via provided npm scripts:
 
-### `lastfm.tagTopAlbums(opts, (err, data) => {})`
+```bash
+# Build unpacked app in ./dist
+npm run pack
 
-Get the top albums tagged by this tag, ordered by tag count. ([tag.getTopAlbums](http://www.last.fm/api/show/tag.getTopAlbums))
+# Create installers/packages for all platforms
+npm run dist
+```
 
-### `lastfm.tagTopArtists(opts, (err, data) => {})`
+Output artifacts are in the `dist/` directory.  
+Customize build options in `package.json` under the `"build"` field.
 
-Get the top artists tagged by this tag, ordered by tag count. ([tag.getTopArtists](http://www.last.fm/api/show/tag.getTopArtists))
+---
 
-### `lastfm.tagTopTags(opts, (err, data) => {})`
+## Troubleshooting
 
-Fetches the top global tags on Last.fm, sorted by popularity (number of times used). ([tag.getTopTags](http://www.last.fm/api/show/tag.getTopTags))
+- **Missing API Key**  
+  - Error: `Last.fm API key not configured.`  
+  - Solution: Set `LASTFM_API_KEY` in your `.env` file and restart the app.
 
-### `lastfm.tagTopTracks(opts, (err, data) => {})`
+- **Invalid Freesound API Key / Rate Limit**  
+  - Error messages on search.  
+  - Solution: Verify `FREESOUND_API_KEY` or wait for rate limit reset.
 
-Get the top tracks tagged by this tag, ordered by tag count. ([tag.getTopTracks](http://www.last.fm/api/show/tag.getTopTracks))
+- **Network Errors**  
+  - Ensure your internet connection is active.
 
-## Track API
+- **Local Database Corruption**  
+  - On startup, a backup is created at `brass_samples.json.backup.*` if the JSON is invalid.  
+  - You can restore from the backup or delete the file to reinitialize.
 
-### `lastfm.trackCorrection(opts, (err, data) => {})`
+- **Electron Fiddle Protocol Not Registered**  
+  - If the app cannot open Fiddle by protocol, it will fallback to showing the JSON file in folder or providing content for manual import.
 
-Use the last.fm corrections data to check whether the supplied track has a correction to a canonical track. ([track.getCorrection](http://www.last.fm/api/show/track.getCorrection))
+- **Platform-Specific Issues**  
+  - On macOS, ensure you've granted permissions for file access.  
+  - On Linux, you may need to install extra codecs for audio playback.
 
-### `lastfm.trackInfo(opts, (err, data) => {})`
+---
 
-Get the metadata for a track on Last.fm using the artist/track name. ([track.getInfo](http://www.last.fm/api/show/track.getInfo))
+## Legacy Node.js API
 
-### `lastfm.trackSimilar(opts, (err, data) => {})`
+If you only need a **Node.js client** for Last.fm (no Electron UI), see the original API documentation:
 
-Get the similar tracks for this track on Last.fm, based on listening data. ([track.getSimilar](http://www.last.fm/api/show/track.getSimilar))
+<details>
+<summary>Legacy API Reference</summary>
 
-### `lastfm.trackTopTags(opts, (err, data) => {})`
+Powered by the [LastFM API](http://www.last.fm/api).  
+Only GET methods are provided for public data (search, info, charts, geo, tags, tracks, etc.).  
+For full details and usage examples, visit the [npm package page](https://npmjs.org/package/last-fm).
+</details>
 
-Get the top tags for this track on Last.fm, ordered by tag count. Supply a track & artist name. ([track.getTopTags](http://www.last.fm/api/show/track.getTopTags))
+---
 
-### `lastfm.trackSearch(opts, (err, data) => {})`
+## Contributing
 
-Search for a track by track name. Returns track matches sorted by relevance. ([track.search](http://www.last.fm/api/show/track.search))
+We welcome contributions:
+
+1. Fork the repository  
+2. Create a feature branch (`git checkout -b feature/YourFeature`)  
+3. Commit your changes (`git commit -m 'Add feature'`)  
+4. Push to your fork (`git push origin feature/YourFeature`)  
+5. Open a Pull Request
+
+Connect with us:  
+- GitHub: https://github.com/traycerai  
+- Discord: https://traycer.ai/discord  
+- Twitter: https://x.com/traycerai  
+- LinkedIn: https://www.linkedin.com/company/traycer  
+- Email: support@traycer.ai
+
+---
 
 ## License
 
-MIT. Copyright (c) [Feross Aboukhadijeh](http://feross.org).
+MIT. © Feross Aboukhadijeh and contributors.
+
+---
+
+## References
+
+- Last.fm API Documentation: http://www.last.fm/api  
+- Freesound API Documentation: https://freesound.org/docs  
+- Electron: https://www.electronjs.org/  
+- Electron Fiddle: https://www.electronjs.org/fiddle  
+- electron-builder: https://www.electron.build/  
