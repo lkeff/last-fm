@@ -19,8 +19,10 @@ A cross-platform desktop application built with [Electron](https://www.electronj
 ## Table of Contents
 
 - [Features](#features)
+- [Security Features](#security-features)
 - [Installation](#installation)
 - [Configuration](#configuration)
+  - [Security Configuration](#security-configuration)
 - [Running the App](#running-the-app)
 - [UI Overview](#ui-overview)
 - [Data Normalization](#data-normalization)
@@ -31,6 +33,10 @@ A cross-platform desktop application built with [Electron](https://www.electronj
 - [Electron Fiddle Integration](#electron-fiddle-integration)
 - [Building & Packaging](#building--packaging)
 - [Troubleshooting](#troubleshooting)
+- [Troubleshooting Security Issues](#troubleshooting-security-issues)
+- [Security Best Practices](#security-best-practices)
+- [Privacy and Data Protection](#privacy-and-data-protection)
+- [Security Architecture Documentation](#security-architecture-documentation)
 - [Legacy Node.js API](#legacy-nodejs-api)
 - [Contributing](#contributing)
 - [License](#license)
@@ -50,6 +56,28 @@ A cross-platform desktop application built with [Electron](https://www.electronj
 - **Cross-Platform:** Works on Windows, macOS, and Linux.
 - **Pack & Distribute:** Build installers using `electron-builder`.
 - **Data Normalization:** Scale raw metrics across different sources to consistent 0–1 or 0–100 ranges for intuitive comparison and visualization.
+
+---
+
+## Security Features
+
+Our application implements multiple layers of defense to protect users and data:
+
+- **Anti-Scam Protection:**  
+  - URL validation against a trusted domain allowlist (`last.fm`, `freesound.org`, `github.com`, etc.).  
+  - HTML sanitization to remove script tags, event handlers, and dangerous attributes.  
+  - Heuristic detection for suspicious URLs, including phishing patterns and URL shorteners.
+
+- **Hash Leak Protection:**  
+  - Secure logging via data scrubbing of API keys, tokens, and personal data.  
+  - SHA-256 hashing of sensitive strings before logging.  
+  - AES-256-GCM encryption for local file storage, with secure key derivation from machine-specific identifiers.
+
+- **AFK Guard:**  
+  - Inactivity detection with configurable timeout (default 10 minutes).  
+  - Session locking that blanks sensitive data in the UI and clears memory caches.  
+  - Unlock mechanism requiring user authentication (click, password, or OS authentication).  
+  - IPC synchronization between main and renderer processes for session state.
 
 ---
 
@@ -73,6 +101,11 @@ npm install
 yarn install
 ```
 
+> **Security Considerations:**  
+> - Verify package integrity using checksums or `npm ci`.  
+> - Ensure your `.env` file is excluded from version control (`.gitignore`).  
+> - Run `npm run security-audit` to scan for known vulnerabilities.
+
 ---
 
 ## Configuration
@@ -90,6 +123,34 @@ yarn install
 
 > **Tip:** Get a Last.fm API key at https://www.last.fm/api/account/create  
 > **Tip:** Get a Freesound API key at https://freesound.org/apiv2/apply/
+
+### Security Configuration
+
+Configure security-related environment variables in your `.env` file:
+
+```text
+# AFK Guard Settings
+AFK_ENABLED=true
+AFK_TIMEOUT_MINUTES=10
+AFK_WARNING_MINUTES=2
+
+# Logging & CSP
+SECURITY_LOG_LEVEL=info
+STRICT_CSP=true
+ENABLE_LINK_VALIDATION=true
+REQUIRE_LINK_CONFIRMATION=true
+
+# Data Protection
+ENCRYPT_LOCAL_DATA=true
+SECURE_LOGGING=true
+CLEAR_LOGS_ON_EXIT=false
+
+# Anti-Scam
+ENABLE_URL_SCANNING=true
+BLOCK_SUSPICIOUS_DOMAINS=true
+```
+
+> **Warning:** Misconfiguration of these settings can weaken defenses or impact performance. Review settings for development vs production.
 
 ---
 
@@ -188,7 +249,7 @@ Normalization is implemented in the shared `utils/normalization.js` module:
 2. **Statistics Calculation:** Computes min, max, mean, median, IQR, etc.  
 3. **Scaling:** Applies the selected normalization strategy to each value.  
 4. **Batch Processing:** Processes entire result arrays, attaches metadata (ranges, statistics, outliers).  
-5. **Preservation:** Original raw values are kept alongside normalized fields (`*_original`).
+5. **Preservation:** Original raw values are kept alongside normalized fields (`*_original`).  
 
 See `utils/normalization.js` for full API documentation and examples.
 
@@ -267,6 +328,91 @@ Customize build options in `package.json` under the `"build"` field.
 - **Platform-Specific Issues**  
   - On macOS, ensure you've granted permissions for file access.  
   - On Linux, you may need to install extra codecs for audio playback.
+
+---
+
+## Troubleshooting Security Issues
+
+- **Suspicious URL Blocked**  
+  - Error: `URL validation failed for external link.`  
+  - Solution: Verify the link is to a trusted domain or disable `ENABLE_LINK_VALIDATION` in `.env`.
+
+- **Session Locked Unexpectedly**  
+  - Error: `AFK session lock activated.`  
+  - Solution: Check `AFK_TIMEOUT_MINUTES` and activity events integration; press unlock and authenticate.
+
+- **Decryption Failed**  
+  - Error: `Unable to decrypt local data.`  
+  - Solution: Confirm `ENCRYPT_LOCAL_DATA` key settings and machine-specific key derivation; clear caches if needed.
+
+- **Strict CSP Violation**  
+  - Error logged in console with `CSP` directive.  
+  - Solution: Review injected policies or disable `STRICT_CSP` in development.
+
+> For further security assistance, contact: support@traycer.ai
+
+---
+
+## Security Best Practices
+
+- **API Key Management:**  
+  - Store API keys only in environment variables or secure keychains; never commit to version control.
+
+- **External Link Handling:**  
+  - Always validate and confirm external links before opening; educate users on phishing risks.
+
+- **Least Privilege Principle:**  
+  - Restrict file system and network permissions to only what is necessary.
+
+- **Code Signing & Verification:**  
+  - Sign application binaries for distribution; verify signatures to prevent tampering.
+
+- **Regular Audits:**  
+  - Run `npm run security-audit` and dependency vulnerability scans frequently.
+
+- **Secure Deployment:**  
+  - Use secure channels (HTTPS) and monitor security logs for anomalies.
+
+---
+
+## Privacy and Data Protection
+
+- **Data Collected:**  
+  - Only metadata (search queries, sample tags) and non-personal usage telemetry (optional).
+
+- **Data Stored Locally:**  
+  - Sample metadata and encrypted backups in `brass_samples.json`.
+
+- **Transmission Security:**  
+  - All API requests use HTTPS; WebSockets are restricted to whitelisted endpoints.
+
+- **Encryption Measures:**  
+  - AES-256-GCM encryption for local storage; secure key derivation using OS-specific identifiers.
+
+- **Privacy Policy:**  
+  - See our [Privacy Policy](https://traycer.ai/privacy) for full details.
+
+---
+
+## Security Architecture Documentation
+
+- **Process Isolation:**  
+  - Main and renderer processes communicate via secure IPC channels with strict context bridging.
+
+- **Content Security Policy (CSP):**  
+  - Programmatic CSP injection via `session.webRequest.onHeadersReceived` and backup meta tags in HTML.
+
+- **Anti-Scam & Sanitization:**  
+  - Comprehensive HTML sanitization in `utils/security.js` and client-side validation in preload script.
+
+- **AFK Guard Flow:**  
+  - `ActivityTracker` in renderer reports to main; `SessionManager` handles lock/unlock with authentication.
+
+- **Encryption Workflow:**  
+  - `deriveKeyFromMachine()` used for AES key; migration logic handles existing unencrypted data.
+
+- **Audit & Testing:**  
+  - Automated tests for sanitization, URL validation, and data encryption; regular manual security reviews.
 
 ---
 

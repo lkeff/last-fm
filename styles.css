@@ -1840,6 +1840,968 @@ body {
   }
 }
 
+/* Security Features Styles */
+
+/* Security Status Indicators */
+.security-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-primary);
+  transition: all var(--transition-normal);
+  cursor: help;
+}
+
+.security-status:hover {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.1);
+}
+
+.security-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: all var(--transition-normal);
+  position: relative;
+}
+
+.security-indicator::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.security-indicator.secure {
+  background: var(--accent-success);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+}
+
+.security-indicator.secure::after {
+  background: radial-gradient(circle, rgba(76, 175, 80, 0.3) 0%, transparent 70%);
+  animation: securityPulse 2s infinite;
+}
+
+.security-indicator.warning {
+  background: var(--accent-warning);
+  box-shadow: 0 0 8px rgba(255, 152, 0, 0.3);
+}
+
+.security-indicator.warning::after {
+  background: radial-gradient(circle, rgba(255, 152, 0, 0.3) 0%, transparent 70%);
+  animation: securityPulse 1.5s infinite;
+}
+
+.security-indicator.danger {
+  background: var(--accent-error);
+  box-shadow: 0 0 8px rgba(244, 67, 54, 0.3);
+}
+
+.security-indicator.danger::after {
+  background: radial-gradient(circle, rgba(244, 67, 54, 0.3) 0%, transparent 70%);
+  animation: securityPulse 1s infinite;
+}
+
+@keyframes securityPulse {
+  0%, 100% { 
+    opacity: 0; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1; 
+    transform: scale(1.5);
+  }
+}
+
+.security-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Security Status Items in Status Bar */
+.security-status-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-normal);
+}
+
+.security-status-item:hover {
+  background: var(--bg-hover);
+}
+
+.afk-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: all var(--transition-normal);
+}
+
+.afk-indicator.active {
+  background: var(--accent-success);
+  box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+}
+
+.afk-indicator.warning {
+  background: var(--accent-warning);
+  animation: afkWarningBlink 1s infinite;
+}
+
+.afk-indicator.locked {
+  background: var(--accent-error);
+}
+
+@keyframes afkWarningBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+.protection-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: all var(--transition-normal);
+}
+
+.protection-indicator.secure {
+  background: var(--accent-success);
+  box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+}
+
+.protection-indicator.processing {
+  background: var(--accent-warning);
+  animation: protectionProcessing 1.5s infinite;
+}
+
+@keyframes protectionProcessing {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+/* AFK Guard Lock Screen */
+.afk-lock-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: afkLockFadeIn 0.5s ease;
+}
+
+.afk-lock-overlay.active {
+  display: flex;
+}
+
+@keyframes afkLockFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+}
+
+.afk-lock-container {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-2xl);
+  text-align: center;
+  box-shadow: var(--shadow-large);
+  max-width: 400px;
+  width: 90%;
+  animation: afkLockSlideIn 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.afk-lock-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+  animation: afkLockScan 3s infinite;
+}
+
+@keyframes afkLockSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes afkLockScan {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.afk-lock-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.afk-lock-icon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-md);
+  animation: afkLockIconPulse 2s infinite;
+}
+
+@keyframes afkLockIconPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+.afk-lock-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.afk-lock-message {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 300px;
+}
+
+.afk-lock-time {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  background: var(--bg-tertiary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-secondary);
+}
+
+.afk-unlock-btn {
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: 1rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--accent-success), #388e3c);
+  border: none;
+  border-radius: var(--radius-lg);
+  color: white;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.afk-unlock-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.afk-unlock-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.afk-unlock-btn:hover::before {
+  left: 100%;
+}
+
+.afk-unlock-btn:active {
+  transform: translateY(0);
+}
+
+/* Session Timeout Warning */
+.timeout-warning {
+  position: fixed;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  background: var(--bg-secondary);
+  border: 2px solid var(--accent-warning);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-large);
+  z-index: 8000;
+  max-width: 350px;
+  display: none;
+  animation: timeoutWarningSlideIn 0.3s ease;
+}
+
+.timeout-warning.active {
+  display: block;
+}
+
+@keyframes timeoutWarningSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.timeout-warning-content {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: flex-start;
+}
+
+.timeout-warning-icon {
+  font-size: 1.5rem;
+  animation: timeoutWarningIconBounce 1s infinite;
+}
+
+@keyframes timeoutWarningIconBounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-5px); }
+  60% { transform: translateY(-3px); }
+}
+
+.timeout-warning-text {
+  flex: 1;
+}
+
+.timeout-warning-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent-warning);
+  margin-bottom: var(--spacing-xs);
+}
+
+.timeout-warning-message {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: var(--spacing-md);
+}
+
+#timeout-countdown {
+  font-weight: 700;
+  color: var(--accent-error);
+  font-family: var(--font-mono);
+}
+
+.timeout-warning-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+}
+
+/* External Link Security Styles */
+.external-link {
+  position: relative;
+  color: var(--accent-primary);
+  text-decoration: none;
+  transition: all var(--transition-normal);
+}
+
+.external-link::after {
+  content: '🔗';
+  font-size: 0.75rem;
+  margin-left: var(--spacing-xs);
+  opacity: 0.7;
+  transition: all var(--transition-normal);
+}
+
+.external-link:hover {
+  color: var(--accent-secondary);
+  text-decoration: underline;
+}
+
+.external-link:hover::after {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.external-link.suspicious {
+  color: var(--accent-warning);
+  border-bottom: 1px dashed var(--accent-warning);
+}
+
+.external-link.suspicious::after {
+  content: '⚠️';
+}
+
+.external-link.dangerous {
+  color: var(--accent-error);
+  border-bottom: 1px solid var(--accent-error);
+}
+
+.external-link.dangerous::after {
+  content: '🚫';
+}
+
+.external-link-icon {
+  margin-right: var(--spacing-xs);
+  font-size: 0.875rem;
+}
+
+/* External Link Warning Modal */
+.external-link-warning {
+  display: flex;
+  gap: var(--spacing-lg);
+  align-items: flex-start;
+}
+
+.warning-icon {
+  font-size: 2.5rem;
+  color: var(--accent-warning);
+  animation: warningIconPulse 2s infinite;
+}
+
+@keyframes warningIconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.warning-content {
+  flex: 1;
+}
+
+.warning-content h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.external-url {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--accent-primary);
+  word-break: break-all;
+  margin-bottom: var(--spacing-md);
+}
+
+.security-assessment {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.assessment-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.assessment-item:last-child {
+  margin-bottom: 0;
+}
+
+.assessment-icon.safe {
+  color: var(--accent-success);
+}
+
+.assessment-icon.warning {
+  color: var(--accent-warning);
+}
+
+.assessment-icon.danger {
+  color: var(--accent-error);
+}
+
+.assessment-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.warning-message {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Data Protection Visual Cues */
+.sensitive-data {
+  position: relative;
+  transition: all var(--transition-normal);
+}
+
+.sensitive-data.blanked {
+  filter: blur(8px);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.sensitive-data.blanked::after {
+  content: '🔒 Click to reveal';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  filter: none;
+}
+
+.sensitive-data.redacted {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--bg-tertiary),
+    var(--bg-tertiary) 4px,
+    var(--border-primary) 4px,
+    var(--border-primary) 8px
+  );
+  color: transparent;
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+
+.sensitive-data.redacted::after {
+  content: '[REDACTED]';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.data-encryption-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: var(--spacing-sm);
+}
+
+.data-encryption-indicator.encrypted {
+  color: var(--accent-success);
+}
+
+.data-encryption-indicator.encrypted::before {
+  content: '🔐';
+}
+
+.data-encryption-indicator.unencrypted {
+  color: var(--accent-warning);
+}
+
+.data-encryption-indicator.unencrypted::before {
+  content: '🔓';
+}
+
+/* Security Notifications */
+.security-notifications {
+  position: fixed;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  z-index: 7000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  max-width: 350px;
+}
+
+.security-notification {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-medium);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  animation: securityNotificationSlideIn 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.security-notification::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--accent-info);
+}
+
+.security-notification.success::before {
+  background: var(--accent-success);
+}
+
+.security-notification.warning::before {
+  background: var(--accent-warning);
+}
+
+.security-notification.error::before {
+  background: var(--accent-error);
+}
+
+@keyframes securityNotificationSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.notification-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.notification-message {
+  flex: 1;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.notification-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-normal);
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Security Help Section */
+.security-help-section {
+  background: var(--bg-primary);
+  border: 2px solid var(--accent-info);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-top: var(--spacing-xl);
+}
+
+.security-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.security-feature {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  transition: all var(--transition-normal);
+}
+
+.security-feature:hover {
+  border-color: var(--border-focus);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-small);
+}
+
+.security-feature-icon {
+  font-size: 2rem;
+  margin-bottom: var(--spacing-md);
+  display: block;
+}
+
+.security-feature-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.security-feature-content p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.security-best-practices {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+
+.security-best-practices h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.security-tips {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.security-tips li {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: var(--spacing-sm);
+  padding-left: var(--spacing-lg);
+  position: relative;
+}
+
+.security-tips li::before {
+  content: '🔒';
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.security-tips li:last-child {
+  margin-bottom: 0;
+}
+
+/* Upload Security Notice */
+.upload-security-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.security-icon {
+  color: var(--accent-success);
+}
+
+/* Responsive Security UI */
+@media (max-width: 768px) {
+  .afk-lock-container {
+    padding: var(--spacing-xl);
+    margin: var(--spacing-md);
+  }
+  
+  .afk-lock-title {
+    font-size: 1.25rem;
+  }
+  
+  .afk-lock-message {
+    font-size: 0.875rem;
+  }
+  
+  .timeout-warning {
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    left: var(--spacing-md);
+    max-width: none;
+  }
+  
+  .timeout-warning-content {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .timeout-warning-actions {
+    justify-content: stretch;
+  }
+  
+  .timeout-warning-actions .btn {
+    flex: 1;
+  }
+  
+  .external-link-warning {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    text-align: center;
+  }
+  
+  .security-features-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .security-notifications {
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    left: var(--spacing-md);
+    max-width: none;
+  }
+  
+  .security-status {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .security-text {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .afk-lock-container {
+    padding: var(--spacing-lg);
+  }
+  
+  .afk-lock-icon {
+    font-size: 3rem;
+  }
+  
+  .afk-lock-title {
+    font-size: 1.125rem;
+  }
+  
+  .afk-unlock-btn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: 0.875rem;
+  }
+  
+  .timeout-warning-content {
+    align-items: center;
+    text-align: center;
+  }
+  
+  .security-feature {
+    padding: var(--spacing-md);
+  }
+  
+  .security-feature-icon {
+    font-size: 1.5rem;
+  }
+  
+  .header-actions {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+  
+  .security-status {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Touch-friendly Security Controls */
+@media (hover: none) and (pointer: coarse) {
+  .afk-unlock-btn {
+    min-height: 44px;
+    padding: var(--spacing-md) var(--spacing-xl);
+  }
+  
+  .timeout-warning-actions .btn {
+    min-height: 44px;
+    padding: var(--spacing-md);
+  }
+  
+  .security-status {
+    min-height: 44px;
+  }
+  
+  .notification-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .external-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* High Contrast Mode for Security Elements */
+@media (prefers-contrast: high) {
+  .security-indicator.secure {
+    background: #00ff00;
+    border: 2px solid #ffffff;
+  }
+  
+  .security-indicator.warning {
+    background: #ffff00;
+    border: 2px solid #000000;
+  }
+  
+  .security-indicator.danger {
+    background: #ff0000;
+    border: 2px solid #ffffff;
+  }
+  
+  .afk-lock-container {
+    border-width: 3px;
+    border-color: #ffffff;
+  }
+  
+  .timeout-warning {
+    border-width: 3px;
+  }
+  
+  .external-link {
+    text-decoration: underline;
+    font-weight: bold;
+  }
+  
+  .security-notification {
+    border-width: 2px;
+  }
+}
+
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -1853,7 +2815,10 @@ body {
 .btn:focus-visible,
 .search-input:focus-visible,
 .filter-select:focus-visible,
-.tab-btn:focus-visible {
+.tab-btn:focus-visible,
+.afk-unlock-btn:focus-visible,
+.external-link:focus-visible,
+.notification-close:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
 }
