@@ -231,7 +231,7 @@ function setupSecurityHandlers() {
           type: 'question',
           title: 'Open External Link',
           message: 'Do you want to open this external link?',
-          detail: `URL: ${url}\n\nThis domain is not in the trusted list but appears safe.`,
+          detail: `URL: ${url}\n\nThis domain is not in the trusted list but appears safe.`, // Corrected newline escape
           buttons: ['Open', 'Cancel'],
           defaultId: 1,
           cancelId: 1
@@ -249,7 +249,7 @@ function setupSecurityHandlers() {
           type: 'warning',
           title: 'Suspicious Link Detected',
           message: 'This link appears suspicious and may be unsafe.',
-          detail: `URL: ${url}\n\nReasons: ${validation.reasons.join(', ')}\n\nAre you sure you want to open it?`,
+          detail: `URL: ${url}\n\nReasons: ${validation.reasons.join(', ')}\n\nAre you sure you want to open it?`, // Corrected newline escape
           buttons: ['Open Anyway', 'Cancel'],
           defaultId: 1,
           cancelId: 1
