@@ -47,33 +47,35 @@
   "license": "MIT",
   "main": "main.js",
   "dependencies": {
+    "axios": "^1.4.0",
+    "dompurify": "^2.4.0",
+    "dotenv": "^16.3.1",
+    "electron": "^25.4.1",
+    "helmet": "^7.0.0",
+    "keytar": "7.9.0",
     "run-parallel": "^1.1.10",
     "simple-get": "^4.0.0",
-    "electron": "^25.4.1",
-    "axios": "^1.4.0",
-    "dotenv": "^16.3.1",
-    "dompurify": "^2.4.0",
-    "validator": "^13.9.0",
-    "keytar": "^8.1.0",
-    "helmet": "^7.0.0"
+    "validator": "^13.9.0"
   },
   "devDependencies": {
-    "standard": "*",
+    "dependency-check": "^5.0.0-7",
     "electron-builder": "^24.6.4",
-    "eslint-plugin-security": "^1.7.1",
-    "npm-audit-ci": "^2.1.0",
-    "dependency-check": "^10.2.0",
-    "snyk": "^1.109.0"
+    "eslint": "^9.39.1",
+    "eslint-plugin-security": "^3.0.1",
+    "npm-audit-ci": "^1.2.1",
+    "snyk": "^1.109.0",
+    "standard": "*"
   },
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "test:security": "eslint --ext .js --plugin security --rule \"security/detect-object-injection:warn\" .",
+    "test:security": "eslint . --max-warnings 50",
     "test": "standard && npm run test:security && node -e \"require('./')\"",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "security-audit": "npm audit && electron-builder --dir --config.nsis.oneClick=false",
-    "build:secure": "npm run security-audit && npm run dist"
+    "build:secure": "npm run security-audit && npm run dist",
+    "bot": "node bot.js"
   },
   "build": {
     "appId": "com.feross.lastfm",
@@ -96,7 +98,11 @@
       {
         "from": ".",
         "to": "resources",
-        "filter": ["!**/.env", "!**/*.env", "!**/.env.example"]
+        "filter": [
+          "!**/.env",
+          "!**/*.env",
+          "!**/.env.example"
+        ]
       }
     ],
     "ignore": [
