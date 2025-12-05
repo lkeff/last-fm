@@ -1,5 +1,5 @@
 // Preload script for Electron
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron')
 
 // Import security utilities (these will be available in the main process)
 // We'll create client-side versions and proxy calls to main process for sensitive operations
@@ -14,8 +14,8 @@ const securityUtils = {
    * @returns {string} HTML-escaped string
    */
   escapeHtml: (string) => {
-    if (typeof string !== 'string') return '';
-    
+    if (typeof string !== 'string') return ''
+
     const htmlEscapes = {
       '&': '&amp;',
       '<': '&lt;',
@@ -23,9 +23,9 @@ const securityUtils = {
       '"': '&quot;',
       "'": '&#x27;',
       '/': '&#x2F;'
-    };
-    
-    return string.replace(/[&<>"'/]/g, (match) => htmlEscapes[match]);
+    }
+
+    return string.replace(/[&<>"'/]/g, (match) => htmlEscapes[match])
   },
 
   /**
@@ -34,13 +34,13 @@ const securityUtils = {
    * @returns {boolean} True if URL appears valid
    */
   isValidUrl: (url) => {
-    if (typeof url !== 'string' || !url.trim()) return false;
-    
+    if (typeof url !== 'string' || !url.trim()) return false
+
     try {
-      const urlObj = new URL(url);
-      return ['https:', 'http:'].includes(urlObj.protocol);
+      const urlObj = new URL(url)
+      return ['https:', 'http:'].includes(urlObj.protocol)
     } catch {
-      return false;
+      return false
     }
   },
 
@@ -48,34 +48,34 @@ const securityUtils = {
    * Rate limiting utility for sensitive operations
    */
   rateLimiter: (() => {
-    const limits = new Map();
-    
+    const limits = new Map()
+
     return {
       check: (key, maxCalls = 10, windowMs = 60000) => {
-        const now = Date.now();
-        const windowStart = now - windowMs;
-        
+        const now = Date.now()
+        const windowStart = now - windowMs
+
         if (!limits.has(key)) {
-          limits.set(key, []);
+          limits.set(key, [])
         }
-        
-        const calls = limits.get(key);
+
+        const calls = limits.get(key)
         // Remove old calls outside the window
-        const recentCalls = calls.filter(time => time > windowStart);
-        
+        const recentCalls = calls.filter(time => time > windowStart)
+
         if (recentCalls.length >= maxCalls) {
-          return false; // Rate limit exceeded
+          return false // Rate limit exceeded
         }
-        
-        recentCalls.push(now);
-        limits.set(key, recentCalls);
-        return true;
+
+        recentCalls.push(now)
+        limits.set(key, recentCalls)
+        return true
       },
-      
+
       reset: (key) => {
-        limits.delete(key);
+        limits.delete(key)
       }
-    };
+    }
   })(),
 
   /**
@@ -92,30 +92,30 @@ const securityUtils = {
         /token/i,
         /password/i,
         /auth/i
-      ];
-      
-      const lowerData = data.toLowerCase();
+      ]
+
+      const lowerData = data.toLowerCase()
       if (sensitivePatterns.some(pattern => pattern.test(lowerData))) {
-        return '[REDACTED]';
+        return '[REDACTED]'
       }
     }
-    
+
     if (typeof data === 'object' && data !== null) {
-      const sanitized = {};
+      const sanitized = {}
       for (const [key, value] of Object.entries(data)) {
-        const keyLower = key.toLowerCase();
+        const keyLower = key.toLowerCase()
         if (['api_key', 'secret', 'token', 'password', 'auth'].some(sensitive => keyLower.includes(sensitive))) {
-          sanitized[key] = '[REDACTED]';
+          sanitized[key] = '[REDACTED]'
         } else {
-          sanitized[key] = securityUtils.sanitizeForLogging(value);
+          sanitized[key] = securityUtils.sanitizeForLogging(value)
         }
       }
-      return sanitized;
+      return sanitized
     }
-    
-    return data;
+
+    return data
   }
-};
+}
 
 /**
  * Validation helpers for the renderer process
@@ -127,7 +127,7 @@ const validators = {
    * @returns {boolean} True if valid, false otherwise
    */
   isValidQuery: (query) => {
-    return typeof query === 'string' && query.trim().length > 0;
+    return typeof query === 'string' && query.trim().length > 0
   },
 
   /**
@@ -136,10 +136,10 @@ const validators = {
    * @returns {boolean} True if valid, false otherwise
    */
   isValidSample: (sample) => {
-    return sample && 
-           typeof sample === 'object' && 
-           typeof sample.name === 'string' && 
-           sample.name.trim().length > 0;
+    return sample &&
+           typeof sample === 'object' &&
+           typeof sample.name === 'string' &&
+           sample.name.trim().length > 0
   },
 
   /**
@@ -148,7 +148,7 @@ const validators = {
    * @returns {boolean} True if valid, false otherwise
    */
   isValidTemplate: (template) => {
-    return template && typeof template === 'object';
+    return template && typeof template === 'object'
   },
 
   /**
@@ -157,9 +157,9 @@ const validators = {
    * @returns {string} The sanitized string
    */
   sanitizeString: (str) => {
-    if (typeof str !== 'string') return '';
+    if (typeof str !== 'string') return ''
     // Enhanced sanitization with HTML escaping
-    return securityUtils.escapeHtml(str.trim());
+    return securityUtils.escapeHtml(str.trim())
   },
 
   /**
@@ -168,7 +168,7 @@ const validators = {
    * @returns {boolean} True if URL is valid and safe
    */
   isValidUrl: (url) => {
-    return securityUtils.isValidUrl(url);
+    return securityUtils.isValidUrl(url)
   },
 
   /**
@@ -177,8 +177,8 @@ const validators = {
    * @returns {boolean} True if query is valid and safe
    */
   isValidSecureQuery: (query) => {
-    if (!validators.isValidQuery(query)) return false;
-    
+    if (!validators.isValidQuery(query)) return false
+
     // Check for potential injection attempts
     const dangerousPatterns = [
       /<script/i,
@@ -186,9 +186,9 @@ const validators = {
       /data:/i,
       /vbscript:/i,
       /on\w+\s*=/i
-    ];
-    
-    return !dangerousPatterns.some(pattern => pattern.test(query));
+    ]
+
+    return !dangerousPatterns.some(pattern => pattern.test(query))
   },
 
   /**
@@ -197,23 +197,23 @@ const validators = {
    * @returns {boolean} True if file is safe to process
    */
   isValidSecureFile: (file) => {
-    if (!file || typeof file !== 'object') return false;
-    
-    const allowedExtensions = ['.wav', '.mp3', '.aiff', '.flac', '.ogg'];
+    if (!file || typeof file !== 'object') return false
+
+    const allowedExtensions = ['.wav', '.mp3', '.aiff', '.flac', '.ogg']
     const allowedMimeTypes = [
-      'audio/wav', 'audio/mpeg', 'audio/aiff', 
+      'audio/wav', 'audio/mpeg', 'audio/aiff',
       'audio/flac', 'audio/ogg', 'audio/x-wav'
-    ];
-    
-    const hasValidExtension = allowedExtensions.some(ext => 
+    ]
+
+    const hasValidExtension = allowedExtensions.some(ext =>
       file.name && file.name.toLowerCase().endsWith(ext)
-    );
-    
-    const hasValidMimeType = allowedMimeTypes.includes(file.type);
-    
-    return hasValidExtension && hasValidMimeType && file.size <= 50 * 1024 * 1024; // 50MB limit
+    )
+
+    const hasValidMimeType = allowedMimeTypes.includes(file.type)
+
+    return hasValidExtension && hasValidMimeType && file.size <= 50 * 1024 * 1024 // 50MB limit
   }
-};
+}
 
 /**
  * Utility functions for the renderer process
@@ -225,11 +225,11 @@ const utils = {
    * @returns {string} Formatted file size
    */
   formatFileSize: (bytes) => {
-    if (!bytes || bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    if (!bytes || bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   },
 
   /**
@@ -238,10 +238,10 @@ const utils = {
    * @returns {string} Formatted duration
    */
   formatDuration: (seconds) => {
-    if (!seconds || seconds === 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    if (!seconds || seconds === 0) return '0:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
   },
 
   /**
@@ -251,15 +251,15 @@ const utils = {
    * @returns {Function} Debounced function
    */
   debounce: (func, wait) => {
-    let timeout;
-    return function executedFunction(...args) {
+    let timeout
+    return function executedFunction (...args) {
       const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
+        clearTimeout(timeout)
+        func(...args)
+      }
+      clearTimeout(timeout)
+      timeout = setTimeout(later, wait)
+    }
   },
 
   /**
@@ -269,13 +269,13 @@ const utils = {
    */
   formatError: (error) => {
     if (typeof error === 'string') {
-      return { message: error, type: 'error' };
+      return { message: error, type: 'error' }
     }
     return {
       message: error?.message || 'An unknown error occurred',
       type: 'error',
       code: error?.code || null
-    };
+    }
   },
 
   /**
@@ -292,13 +292,13 @@ const utils = {
    * @returns {number} Scaled value
    */
   scaleLinear: (value, min, max, targetMin = 0, targetMax = 1) => {
-    if (typeof value !== 'number' || isNaN(value)) return targetMin;
-    if (min === max) return targetMin;
-    if (value <= min) return targetMin;
-    if (value >= max) return targetMax;
-    
-    const ratio = (value - min) / (max - min);
-    return targetMin + ratio * (targetMax - targetMin);
+    if (typeof value !== 'number' || isNaN(value)) return targetMin
+    if (min === max) return targetMin
+    if (value <= min) return targetMin
+    if (value >= max) return targetMax
+
+    const ratio = (value - min) / (max - min)
+    return targetMin + ratio * (targetMax - targetMin)
   },
 
   /**
@@ -309,7 +309,7 @@ const utils = {
    * @returns {number} Normalized value between 0 and 1
    */
   normalizeToUnit: (value, min, max) => {
-    return utils.scaleLinear(value, min, max, 0, 1);
+    return utils.scaleLinear(value, min, max, 0, 1)
   },
 
   /**
@@ -320,7 +320,7 @@ const utils = {
    * @returns {number} Normalized value between 0 and 100
    */
   normalizeToPercent: (value, min, max) => {
-    return utils.scaleLinear(value, min, max, 0, 100);
+    return utils.scaleLinear(value, min, max, 0, 100)
   },
 
   /**
@@ -332,31 +332,31 @@ const utils = {
   computeMinMax: (dataset, fields) => {
     if (!Array.isArray(dataset) || dataset.length === 0) {
       return fields.reduce((acc, field) => {
-        acc[field] = { min: 0, max: 1 };
-        return acc;
-      }, {});
+        acc[field] = { min: 0, max: 1 }
+        return acc
+      }, {})
     }
 
-    const result = {};
-    
+    const result = {}
+
     fields.forEach(field => {
       const values = dataset
         .map(item => item[field])
-        .filter(val => typeof val === 'number' && !isNaN(val));
-      
+        .filter(val => typeof val === 'number' && !isNaN(val))
+
       if (values.length === 0) {
-        result[field] = { min: 0, max: 1 };
+        result[field] = { min: 0, max: 1 }
       } else if (values.length === 1) {
-        result[field] = { min: 0, max: values[0] || 1 };
+        result[field] = { min: 0, max: values[0] || 1 }
       } else {
         result[field] = {
           min: Math.min(...values),
           max: Math.max(...values)
-        };
+        }
       }
-    });
+    })
 
-    return result;
+    return result
   },
 
   /**
@@ -371,43 +371,43 @@ const utils = {
       return {
         data: [],
         metadata: {
-          fields: fields,
-          mode: mode,
+          fields,
+          mode,
           ranges: {}
         }
-      };
+      }
     }
 
-    const ranges = utils.computeMinMax(dataset, fields);
-    const normalizeFunc = mode === 'percent' ? utils.normalizeToPercent : utils.normalizeToUnit;
-    
+    const ranges = utils.computeMinMax(dataset, fields)
+    const normalizeFunc = mode === 'percent' ? utils.normalizeToPercent : utils.normalizeToUnit
+
     const normalizedData = dataset.map(item => {
-      const normalized = { ...item };
-      
+      const normalized = { ...item }
+
       fields.forEach(field => {
-        const originalValue = item[field];
+        const originalValue = item[field]
         if (typeof originalValue === 'number' && !isNaN(originalValue)) {
-          const { min, max } = ranges[field];
-          normalized[`${field}_normalized`] = normalizeFunc(originalValue, min, max);
-          normalized[`${field}_original`] = originalValue;
+          const { min, max } = ranges[field]
+          normalized[`${field}_normalized`] = normalizeFunc(originalValue, min, max)
+          normalized[`${field}_original`] = originalValue
         } else {
-          normalized[`${field}_normalized`] = mode === 'percent' ? 0 : 0;
-          normalized[`${field}_original`] = originalValue;
+          normalized[`${field}_normalized`] = mode === 'percent' ? 0 : 0
+          normalized[`${field}_original`] = originalValue
         }
-      });
-      
-      return normalized;
-    });
+      })
+
+      return normalized
+    })
 
     return {
       data: normalizedData,
       metadata: {
-        fields: fields,
-        mode: mode,
-        ranges: ranges,
+        fields,
+        mode,
+        ranges,
         count: dataset.length
       }
-    };
+    }
   },
 
   /**
@@ -417,27 +417,27 @@ const utils = {
    */
   checkNormalizationEdgeCases: (values) => {
     if (!Array.isArray(values)) {
-      return { hasEdgeCases: true, type: 'invalid_input' };
+      return { hasEdgeCases: true, type: 'invalid_input' }
     }
 
-    const numericValues = values.filter(val => typeof val === 'number' && !isNaN(val));
-    
+    const numericValues = values.filter(val => typeof val === 'number' && !isNaN(val))
+
     if (numericValues.length === 0) {
-      return { hasEdgeCases: true, type: 'no_numeric_values' };
+      return { hasEdgeCases: true, type: 'no_numeric_values' }
     }
 
     if (numericValues.length === 1) {
-      return { hasEdgeCases: true, type: 'single_value' };
+      return { hasEdgeCases: true, type: 'single_value' }
     }
 
-    const min = Math.min(...numericValues);
-    const max = Math.max(...numericValues);
+    const min = Math.min(...numericValues)
+    const max = Math.max(...numericValues)
 
     if (min === max) {
-      return { hasEdgeCases: true, type: 'uniform_values' };
+      return { hasEdgeCases: true, type: 'uniform_values' }
     }
 
-    return { hasEdgeCases: false, type: 'normal' };
+    return { hasEdgeCases: false, type: 'normal' }
   },
 
   /**
@@ -447,31 +447,31 @@ const utils = {
    * @returns {Object} Normalization context with statistics
    */
   createNormalizationContext: (dataset, fields) => {
-    const ranges = utils.computeMinMax(dataset, fields);
+    const ranges = utils.computeMinMax(dataset, fields)
     const context = {
       totalItems: dataset.length,
       fields: {},
       timestamp: Date.now()
-    };
+    }
 
     fields.forEach(field => {
       const values = dataset
         .map(item => item[field])
-        .filter(val => typeof val === 'number' && !isNaN(val));
-      
-      const edgeCases = utils.checkNormalizationEdgeCases(values);
-      
+        .filter(val => typeof val === 'number' && !isNaN(val))
+
+      const edgeCases = utils.checkNormalizationEdgeCases(values)
+
       context.fields[field] = {
         ...ranges[field],
         count: values.length,
-        edgeCases: edgeCases,
+        edgeCases,
         mean: values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0
-      };
-    });
+      }
+    })
 
-    return context;
+    return context
   }
-};
+}
 
 /**
  * Enhanced API wrapper with comprehensive security and error handling
@@ -480,68 +480,68 @@ const utils = {
  * @param {Object} options - Additional options for security
  * @returns {Function} Wrapped API function
  */
-function createSecureApiWrapper(channel, validator = null, options = {}) {
-  const { 
-    requiresAuth = false, 
-    rateLimitKey = null, 
-    maxCalls = 10, 
+function createSecureApiWrapper (channel, validator = null, options = {}) {
+  const {
+    requiresAuth = false,
+    rateLimitKey = null,
+    maxCalls = 10,
     windowMs = 60000,
-    sanitizeArgs = true 
-  } = options;
-  
+    sanitizeArgs = true
+  } = options
+
   return async (...args) => {
     try {
       // Rate limiting check
       if (rateLimitKey && !securityUtils.rateLimiter.check(rateLimitKey, maxCalls, windowMs)) {
-        throw new Error(`Rate limit exceeded for ${channel}`);
+        throw new Error(`Rate limit exceeded for ${channel}`)
       }
-      
+
       // Sanitize arguments if enabled
-      let sanitizedArgs = args;
+      let sanitizedArgs = args
       if (sanitizeArgs) {
         sanitizedArgs = args.map(arg => {
           if (typeof arg === 'string') {
-            return validators.sanitizeString(arg);
+            return validators.sanitizeString(arg)
           }
-          return arg;
-        });
+          return arg
+        })
       }
-      
+
       // Validate arguments if validator provided
       if (validator && !validator(...sanitizedArgs)) {
-        throw new Error(`Invalid arguments provided to ${channel}`);
+        throw new Error(`Invalid arguments provided to ${channel}`)
       }
-      
-      const result = await ipcRenderer.invoke(channel, ...sanitizedArgs);
-      return { success: true, data: result };
+
+      const result = await ipcRenderer.invoke(channel, ...sanitizedArgs)
+      return { success: true, data: result }
     } catch (error) {
       // Secure error logging - don't expose sensitive details
       const sanitizedError = {
         message: error?.message || 'An unknown error occurred',
         type: 'error',
         code: error?.code || null,
-        channel: channel
-      };
-      
+        channel
+      }
+
       // Log to secure logging system instead of console
       if (window.api && window.api.secureLog) {
-        window.api.secureLog('error', `API Error [${channel}]`, sanitizedError);
+        window.api.secureLog('error', `API Error [${channel}]`, sanitizedError)
       }
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: sanitizedError,
-        channel 
-      };
+        channel
+      }
     }
-  };
+  }
 }
 
 /**
  * Legacy API wrapper for backward compatibility
  */
-function createApiWrapper(channel, validator = null) {
-  return createSecureApiWrapper(channel, validator);
+function createApiWrapper (channel, validator = null) {
+  return createSecureApiWrapper(channel, validator)
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -556,7 +556,7 @@ contextBridge.exposeInMainWorld('api', {
      * @param {string} htmlString - HTML string to sanitize
      * @returns {Promise<Object>} Sanitized HTML or error
      */
-    sanitizeHtml: createSecureApiWrapper('security-sanitize-html', 
+    sanitizeHtml: createSecureApiWrapper('security-sanitize-html',
       (html) => typeof html === 'string',
       { rateLimitKey: 'sanitize', maxCalls: 50, windowMs: 60000 }
     ),
@@ -599,7 +599,7 @@ contextBridge.exposeInMainWorld('api', {
   /**
    * Secure External Link API
    */
-  
+
   /**
    * Open external URL with security validation
    * @param {string} url - URL to open
@@ -664,7 +664,7 @@ contextBridge.exposeInMainWorld('api', {
   /**
    * Secure Logging Interface
    */
-  
+
   /**
    * Secure logging that routes through main process
    * @param {string} level - Log level (error, warn, info, debug)
@@ -713,13 +713,13 @@ contextBridge.exposeInMainWorld('api', {
   /**
    * Last.fm API Methods
    */
-  
+
   /**
    * Search Last.fm for artists, tracks, or albums
    * @param {string} query - Search query string
    * @returns {Promise<Object>} Search results or error
    */
-  searchLastFm: createSecureApiWrapper('search-lastfm', 
+  searchLastFm: createSecureApiWrapper('search-lastfm',
     (query) => validators.isValidSecureQuery(query),
     { rateLimitKey: 'lastfm-search', maxCalls: 30, windowMs: 60000 }
   ),
@@ -727,13 +727,13 @@ contextBridge.exposeInMainWorld('api', {
   /**
    * Brass Stabs Management Methods
    */
-  
+
   /**
    * Search local brass stabs database
    * @param {string} query - Search query string
    * @returns {Promise<Object>} Search results or error
    */
-  searchLocalBrass: createSecureApiWrapper('search-local-brass', 
+  searchLocalBrass: createSecureApiWrapper('search-local-brass',
     (query) => validators.isValidSecureQuery(query),
     { rateLimitKey: 'local-search', maxCalls: 50, windowMs: 60000 }
   ),
@@ -743,7 +743,7 @@ contextBridge.exposeInMainWorld('api', {
    * @param {string} query - Search query string
    * @returns {Promise<Object>} Search results or error
    */
-  searchOnlineBrass: createSecureApiWrapper('search-online-brass', 
+  searchOnlineBrass: createSecureApiWrapper('search-online-brass',
     (query) => validators.isValidSecureQuery(query),
     { rateLimitKey: 'freesound-search', maxCalls: 20, windowMs: 60000 }
   ),
@@ -753,7 +753,7 @@ contextBridge.exposeInMainWorld('api', {
    * @param {Object} sample - Sample object with name, path, tags, etc.
    * @returns {Promise<Object>} Success status or error
    */
-  addBrassSample: createSecureApiWrapper('add-brass-sample', 
+  addBrassSample: createSecureApiWrapper('add-brass-sample',
     (sample) => validators.isValidSample(sample),
     { rateLimitKey: 'add-sample', maxCalls: 10, windowMs: 60000 }
   ),
@@ -761,7 +761,7 @@ contextBridge.exposeInMainWorld('api', {
   /**
    * File Management Methods
    */
-  
+
   /**
    * Open file dialog to select brass sample files
    * @returns {Promise<Object>} Selected files or error
@@ -774,13 +774,13 @@ contextBridge.exposeInMainWorld('api', {
   /**
    * Electron Fiddle Integration Methods
    */
-  
+
   /**
    * Open Electron Fiddle with a template
    * @param {Object} template - Fiddle template object
    * @returns {Promise<Object>} Success status or error
    */
-  openFiddle: createSecureApiWrapper('open-fiddle', 
+  openFiddle: createSecureApiWrapper('open-fiddle',
     (template) => validators.isValidTemplate(template),
     { rateLimitKey: 'fiddle', maxCalls: 5, windowMs: 60000 }
   ),
@@ -797,28 +797,28 @@ contextBridge.exposeInMainWorld('api', {
   /**
    * Utility Methods
    */
-  
+
   /**
    * Enhanced validation helpers for the renderer process
    */
   validators: {
     ...validators,
-    
+
     /**
      * Validate with security context
      */
     validateWithSecurity: (data, type) => {
       switch (type) {
         case 'query':
-          return validators.isValidSecureQuery(data);
+          return validators.isValidSecureQuery(data)
         case 'url':
-          return validators.isValidUrl(data);
+          return validators.isValidUrl(data)
         case 'file':
-          return validators.isValidSecureFile(data);
+          return validators.isValidSecureFile(data)
         case 'sample':
-          return validators.isValidSample(data);
+          return validators.isValidSample(data)
         default:
-          return false;
+          return false
       }
     }
   },
@@ -828,7 +828,7 @@ contextBridge.exposeInMainWorld('api', {
    */
   utils: {
     ...utils,
-    
+
     /**
      * Enhanced error formatting with security context
      * @param {Error|string} error - The error to format
@@ -836,16 +836,16 @@ contextBridge.exposeInMainWorld('api', {
      * @returns {Object} Safe error object
      */
     formatSecureError: (error, context = 'general') => {
-      const baseError = utils.formatError(error);
-      
+      const baseError = utils.formatError(error)
+
       // Add security context without exposing sensitive details
       return {
         ...baseError,
-        context: context,
+        context,
         timestamp: Date.now(),
         // Remove potentially sensitive stack traces in production
         stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
-      };
+      }
     },
 
     /**
@@ -854,19 +854,19 @@ contextBridge.exposeInMainWorld('api', {
      * @returns {Object} Object with sensitive data cleared
      */
     clearSensitiveFields: (obj) => {
-      if (typeof obj !== 'object' || obj === null) return obj;
-      
-      const sensitiveKeys = ['api_key', 'secret', 'token', 'password', 'auth', 'credential'];
-      const cleared = { ...obj };
-      
+      if (typeof obj !== 'object' || obj === null) return obj
+
+      const sensitiveKeys = ['api_key', 'secret', 'token', 'password', 'auth', 'credential']
+      const cleared = { ...obj }
+
       Object.keys(cleared).forEach(key => {
-        const keyLower = key.toLowerCase();
+        const keyLower = key.toLowerCase()
         if (sensitiveKeys.some(sensitive => keyLower.includes(sensitive))) {
-          cleared[key] = '[CLEARED]';
+          cleared[key] = '[CLEARED]'
         }
-      });
-      
-      return cleared;
+      })
+
+      return cleared
     },
 
     /**
@@ -875,15 +875,15 @@ contextBridge.exposeInMainWorld('api', {
     cleanupMemory: () => {
       // Clear any cached sensitive data
       if (window.searchCache) {
-        window.searchCache.clear();
+        window.searchCache.clear()
       }
       if (window.apiCache) {
-        window.apiCache.clear();
+        window.apiCache.clear()
       }
-      
+
       // Force garbage collection if available
       if (window.gc) {
-        window.gc();
+        window.gc()
       }
     }
   },
@@ -896,7 +896,7 @@ contextBridge.exposeInMainWorld('api', {
     MAX_SEARCH_RESULTS: 50,
     DEBOUNCE_DELAY: 300,
     FILE_SIZE_LIMIT: 50 * 1024 * 1024, // 50MB
-    
+
     // Security constants
     SECURITY: {
       RATE_LIMITS: {
@@ -905,7 +905,7 @@ contextBridge.exposeInMainWorld('api', {
         EXTERNAL_LINKS: { maxCalls: 10, windowMs: 60000 },
         FILE_OPERATIONS: { maxCalls: 20, windowMs: 60000 }
       },
-      
+
       TRUSTED_DOMAINS: [
         'last.fm', 'www.last.fm', 'ws.audioscrobbler.com',
         'freesound.org', 'www.freesound.org',
@@ -913,18 +913,18 @@ contextBridge.exposeInMainWorld('api', {
         'nodejs.org', 'electronjs.org',
         'traycer.ai'
       ],
-      
+
       DANGEROUS_PATTERNS: [
         /<script/i, /javascript:/i, /data:/i, /vbscript:/i, /on\w+\s*=/i
       ],
-      
+
       AFK_SETTINGS: {
         DEFAULT_TIMEOUT: 10 * 60 * 1000, // 10 minutes
         WARNING_TIME: 2 * 60 * 1000, // 2 minutes
         SENSITIVITY_LEVELS: ['low', 'normal', 'high']
       }
     },
-    
+
     // Normalization constants
     NORMALIZATION: {
       MODES: {
@@ -965,28 +965,28 @@ contextBridge.exposeInMainWorld('api', {
 (() => {
   // Set up activity reporting for AFK guard
   if (typeof document !== 'undefined') {
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart']
     const reportActivity = () => {
       if (window.api && window.api.afkGuard && window.api.afkGuard.reportActivity) {
-        window.api.afkGuard.reportActivity({ timestamp: Date.now(), source: 'preload' });
+        window.api.afkGuard.reportActivity({ timestamp: Date.now(), source: 'preload' })
       }
-    };
-    
+    }
+
     // Debounced activity reporting
-    const debouncedReport = utils.debounce(reportActivity, 1000);
-    
+    const debouncedReport = utils.debounce(reportActivity, 1000)
+
     activityEvents.forEach(event => {
-      document.addEventListener(event, debouncedReport, { passive: true });
-    });
-    
+      document.addEventListener(event, debouncedReport, { passive: true })
+    })
+
     // Visibility change handling
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
-        reportActivity();
+        reportActivity()
       }
-    });
+    })
   }
-  
+
   // Set up secure error handling
   window.addEventListener('error', (event) => {
     if (window.api && window.api.secureLog) {
@@ -995,24 +995,24 @@ contextBridge.exposeInMainWorld('api', {
         filename: event.filename,
         lineno: event.lineno,
         colno: event.colno
-      });
-      
-      window.api.secureLog('error', 'Renderer Error', sanitizedError);
+      })
+
+      window.api.secureLog('error', 'Renderer Error', sanitizedError)
     }
-  });
-  
+  })
+
   // Set up unhandled promise rejection handling
   window.addEventListener('unhandledrejection', (event) => {
     if (window.api && window.api.secureLog) {
       const sanitizedError = securityUtils.sanitizeForLogging({
         reason: event.reason?.message || 'Unknown rejection',
         stack: process.env.NODE_ENV === 'development' ? event.reason?.stack : undefined
-      });
-      
-      window.api.secureLog('error', 'Unhandled Promise Rejection', sanitizedError);
+      })
+
+      window.api.secureLog('error', 'Unhandled Promise Rejection', sanitizedError)
     }
-  });
-})();
+  })
+})()
 
 // Log successful preload initialization with security features
 if (window.api && window.api.secureLog) {
@@ -1020,7 +1020,7 @@ if (window.api && window.api.secureLog) {
     message: 'Brass Stabs Preload Script Loaded Successfully with Security Features',
     features: ['Security API', 'AFK Guard', 'Secure Logging', 'Rate Limiting', 'Input Validation'],
     timestamp: Date.now()
-  });
+  })
 } else {
-  console.log('🎺 Brass Stabs Preload Script Loaded Successfully with Security Features');
+  console.log('🎺 Brass Stabs Preload Script Loaded Successfully with Security Features')
 }
