@@ -1,11 +1,11 @@
 /**
  * Comprehensive Data Normalization Utilities
- * 
+ *
  * This module provides a complete set of normalization functions that can be used
  * across different processes in the Electron application. It handles various data
  * types, normalization strategies, and edge cases to ensure consistent data scaling
  * and comparison across different data sources (Last.fm, Freesound, local samples).
- * 
+ *
  * @module normalization
  * @version 1.0.0
  */
@@ -14,19 +14,19 @@
 const NORMALIZATION_CONFIG = {
   // Normalization modes
   MODES: {
-    UNIT: 'unit',           // 0-1 range
-    PERCENT: 'percent',     // 0-100 range
-    ZSCORE: 'zscore',       // Standard score normalization
-    ROBUST: 'robust',       // Robust scaling using median and IQR
-    MINMAX: 'minmax'        // Min-max scaling (alias for unit)
+    UNIT: 'unit', // 0-1 range
+    PERCENT: 'percent', // 0-100 range
+    ZSCORE: 'zscore', // Standard score normalization
+    ROBUST: 'robust', // Robust scaling using median and IQR
+    MINMAX: 'minmax' // Min-max scaling (alias for unit)
   },
 
   // Default ranges for different modes
   RANGES: {
     unit: { min: 0, max: 1 },
     percent: { min: 0, max: 100 },
-    zscore: { min: -3, max: 3 },      // Typical range for z-scores
-    robust: { min: -2, max: 2 },      // Typical range for robust scaling
+    zscore: { min: -3, max: 3 }, // Typical range for z-scores
+    robust: { min: -2, max: 2 }, // Typical range for robust scaling
     minmax: { min: 0, max: 1 }
   },
 
@@ -51,19 +51,19 @@ const NORMALIZATION_CONFIG = {
 
   // Outlier detection methods
   OUTLIER_METHODS: {
-    IQR: 'iqr',           // Interquartile range method
-    ZSCORE: 'zscore',     // Z-score method
+    IQR: 'iqr', // Interquartile range method
+    ZSCORE: 'zscore', // Z-score method
     MODIFIED_ZSCORE: 'modified_zscore', // Modified z-score using median
-    NONE: 'none'          // No outlier detection
+    NONE: 'none' // No outlier detection
   },
 
   // Statistical thresholds
   THRESHOLDS: {
-    ZSCORE_OUTLIER: 3,           // Z-score threshold for outliers
+    ZSCORE_OUTLIER: 3, // Z-score threshold for outliers
     MODIFIED_ZSCORE_OUTLIER: 3.5, // Modified z-score threshold
-    IQR_MULTIPLIER: 1.5          // IQR multiplier for outlier detection
+    IQR_MULTIPLIER: 1.5 // IQR multiplier for outlier detection
   }
-};
+}
 
 /**
  * Data type detection and validation utilities
@@ -75,20 +75,20 @@ const DataTypeUtils = {
    * @returns {string} Detected data type
    */
   detectType: (value) => {
-    if (value === null || value === undefined) return 'null';
-    if (typeof value === 'boolean') return 'boolean';
+    if (value === null || value === undefined) return 'null'
+    if (typeof value === 'boolean') return 'boolean'
     if (typeof value === 'string') {
       // Check if it's a timestamp string
-      if (DataTypeUtils.isTimestamp(value)) return NORMALIZATION_CONFIG.DATA_TYPES.TIMESTAMP;
-      return 'string';
+      if (DataTypeUtils.isTimestamp(value)) return NORMALIZATION_CONFIG.DATA_TYPES.TIMESTAMP
+      return 'string'
     }
     if (typeof value === 'number') {
-      if (isNaN(value)) return 'nan';
-      if (!isFinite(value)) return 'infinite';
-      if (Number.isInteger(value)) return NORMALIZATION_CONFIG.DATA_TYPES.INTEGER;
-      return NORMALIZATION_CONFIG.DATA_TYPES.FLOAT;
+      if (isNaN(value)) return 'nan'
+      if (!isFinite(value)) return 'infinite'
+      if (Number.isInteger(value)) return NORMALIZATION_CONFIG.DATA_TYPES.INTEGER
+      return NORMALIZATION_CONFIG.DATA_TYPES.FLOAT
     }
-    return 'unknown';
+    return 'unknown'
   },
 
   /**
@@ -99,14 +99,14 @@ const DataTypeUtils = {
   isTimestamp: (value) => {
     if (typeof value === 'number') {
       // Unix timestamp (seconds or milliseconds)
-      return value > 946684800 && value < 4102444800000; // Year 2000 to 2100
+      return value > 946684800 && value < 4102444800000 // Year 2000 to 2100
     }
     if (typeof value === 'string') {
       // ISO date string or other date formats
-      const date = new Date(value);
-      return !isNaN(date.getTime());
+      const date = new Date(value)
+      return !isNaN(date.getTime())
     }
-    return false;
+    return false
   },
 
   /**
@@ -115,7 +115,7 @@ const DataTypeUtils = {
    * @returns {boolean} True if value is valid for normalization
    */
   isValidNumeric: (value) => {
-    return typeof value === 'number' && isFinite(value) && !isNaN(value);
+    return typeof value === 'number' && isFinite(value) && !isNaN(value)
   },
 
   /**
@@ -124,19 +124,19 @@ const DataTypeUtils = {
    * @returns {number|null} Converted number or null if conversion fails
    */
   toNumeric: (value) => {
-    if (DataTypeUtils.isValidNumeric(value)) return value;
-    
+    if (DataTypeUtils.isValidNumeric(value)) return value
+
     if (typeof value === 'string') {
-      const parsed = parseFloat(value);
-      return DataTypeUtils.isValidNumeric(parsed) ? parsed : null;
+      const parsed = parseFloat(value)
+      return DataTypeUtils.isValidNumeric(parsed) ? parsed : null
     }
-    
+
     if (DataTypeUtils.isTimestamp(value)) {
-      const date = new Date(value);
-      return date.getTime();
+      const date = new Date(value)
+      return date.getTime()
     }
-    
-    return null;
+
+    return null
   },
 
   /**
@@ -145,12 +145,12 @@ const DataTypeUtils = {
    * @returns {Array<number>} Array of valid numeric values
    */
   filterNumeric: (values) => {
-    if (!Array.isArray(values)) return [];
+    if (!Array.isArray(values)) return []
     return values
       .map(DataTypeUtils.toNumeric)
-      .filter(val => val !== null);
+      .filter(val => val !== null)
   }
-};
+}
 
 /**
  * Statistical analysis utilities
@@ -162,8 +162,8 @@ const StatisticalUtils = {
    * @returns {Object} Statistical measures
    */
   calculateStats: (values) => {
-    const numericValues = DataTypeUtils.filterNumeric(values);
-    
+    const numericValues = DataTypeUtils.filterNumeric(values)
+
     if (numericValues.length === 0) {
       return {
         count: 0,
@@ -177,11 +177,11 @@ const StatisticalUtils = {
         q3: 0,
         iqr: 0,
         range: 1
-      };
+      }
     }
 
     if (numericValues.length === 1) {
-      const value = numericValues[0];
+      const value = numericValues[0]
       return {
         count: 1,
         min: 0,
@@ -194,31 +194,31 @@ const StatisticalUtils = {
         q3: value,
         iqr: 0,
         range: value || 1
-      };
+      }
     }
 
-    const sorted = [...numericValues].sort((a, b) => a - b);
-    const count = sorted.length;
-    const min = sorted[0];
-    const max = sorted[count - 1];
-    const mean = sorted.reduce((sum, val) => sum + val, 0) / count;
-    
+    const sorted = [...numericValues].sort((a, b) => a - b)
+    const count = sorted.length
+    const min = sorted[0]
+    const max = sorted[count - 1]
+    const mean = sorted.reduce((sum, val) => sum + val, 0) / count
+
     // Calculate median
     const median = count % 2 === 0
       ? (sorted[Math.floor(count / 2) - 1] + sorted[Math.floor(count / 2)]) / 2
-      : sorted[Math.floor(count / 2)];
-    
+      : sorted[Math.floor(count / 2)]
+
     // Calculate quartiles
-    const q1Index = Math.floor(count * 0.25);
-    const q3Index = Math.floor(count * 0.75);
-    const q1 = sorted[q1Index];
-    const q3 = sorted[q3Index];
-    const iqr = q3 - q1;
-    
+    const q1Index = Math.floor(count * 0.25)
+    const q3Index = Math.floor(count * 0.75)
+    const q1 = sorted[q1Index]
+    const q3 = sorted[q3Index]
+    const iqr = q3 - q1
+
     // Calculate variance and standard deviation
-    const variance = sorted.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / count;
-    const std = Math.sqrt(variance);
-    
+    const variance = sorted.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / count
+    const std = Math.sqrt(variance)
+
     return {
       count,
       min,
@@ -231,7 +231,7 @@ const StatisticalUtils = {
       q3,
       iqr,
       range: max - min
-    };
+    }
   },
 
   /**
@@ -241,61 +241,61 @@ const StatisticalUtils = {
    * @returns {Object} Outlier detection results
    */
   detectOutliers: (values, method = NORMALIZATION_CONFIG.OUTLIER_METHODS.IQR) => {
-    const numericValues = DataTypeUtils.filterNumeric(values);
-    
+    const numericValues = DataTypeUtils.filterNumeric(values)
+
     if (numericValues.length < 3) {
       return {
         outliers: [],
         outlierIndices: [],
         cleanValues: numericValues,
-        method: method
-      };
+        method
+      }
     }
 
-    const stats = StatisticalUtils.calculateStats(numericValues);
-    let outliers = [];
-    let outlierIndices = [];
+    const stats = StatisticalUtils.calculateStats(numericValues)
+    const outliers = []
+    const outlierIndices = []
 
     switch (method) {
       case NORMALIZATION_CONFIG.OUTLIER_METHODS.IQR:
-        const lowerBound = stats.q1 - NORMALIZATION_CONFIG.THRESHOLDS.IQR_MULTIPLIER * stats.iqr;
-        const upperBound = stats.q3 + NORMALIZATION_CONFIG.THRESHOLDS.IQR_MULTIPLIER * stats.iqr;
-        
+        const lowerBound = stats.q1 - NORMALIZATION_CONFIG.THRESHOLDS.IQR_MULTIPLIER * stats.iqr
+        const upperBound = stats.q3 + NORMALIZATION_CONFIG.THRESHOLDS.IQR_MULTIPLIER * stats.iqr
+
         numericValues.forEach((value, index) => {
           if (value < lowerBound || value > upperBound) {
-            outliers.push(value);
-            outlierIndices.push(index);
+            outliers.push(value)
+            outlierIndices.push(index)
           }
-        });
-        break;
+        })
+        break
 
       case NORMALIZATION_CONFIG.OUTLIER_METHODS.ZSCORE:
         numericValues.forEach((value, index) => {
-          const zscore = Math.abs((value - stats.mean) / stats.std);
+          const zscore = Math.abs((value - stats.mean) / stats.std)
           if (zscore > NORMALIZATION_CONFIG.THRESHOLDS.ZSCORE_OUTLIER) {
-            outliers.push(value);
-            outlierIndices.push(index);
+            outliers.push(value)
+            outlierIndices.push(index)
           }
-        });
-        break;
+        })
+        break
 
       case NORMALIZATION_CONFIG.OUTLIER_METHODS.MODIFIED_ZSCORE:
-        const medianAbsoluteDeviation = StatisticalUtils.calculateMAD(numericValues, stats.median);
+        const medianAbsoluteDeviation = StatisticalUtils.calculateMAD(numericValues, stats.median)
         numericValues.forEach((value, index) => {
-          const modifiedZScore = 0.6745 * (value - stats.median) / medianAbsoluteDeviation;
+          const modifiedZScore = 0.6745 * (value - stats.median) / medianAbsoluteDeviation
           if (Math.abs(modifiedZScore) > NORMALIZATION_CONFIG.THRESHOLDS.MODIFIED_ZSCORE_OUTLIER) {
-            outliers.push(value);
-            outlierIndices.push(index);
+            outliers.push(value)
+            outlierIndices.push(index)
           }
-        });
-        break;
+        })
+        break
 
       default:
         // No outlier detection
-        break;
+        break
     }
 
-    const cleanValues = numericValues.filter((_, index) => !outlierIndices.includes(index));
+    const cleanValues = numericValues.filter((_, index) => !outlierIndices.includes(index))
 
     return {
       outliers,
@@ -303,7 +303,7 @@ const StatisticalUtils = {
       cleanValues,
       method,
       stats
-    };
+    }
   },
 
   /**
@@ -313,14 +313,14 @@ const StatisticalUtils = {
    * @returns {number} Median absolute deviation
    */
   calculateMAD: (values, median) => {
-    const deviations = values.map(value => Math.abs(value - median));
-    deviations.sort((a, b) => a - b);
-    const count = deviations.length;
+    const deviations = values.map(value => Math.abs(value - median))
+    deviations.sort((a, b) => a - b)
+    const count = deviations.length
     return count % 2 === 0
       ? (deviations[Math.floor(count / 2) - 1] + deviations[Math.floor(count / 2)]) / 2
-      : deviations[Math.floor(count / 2)];
+      : deviations[Math.floor(count / 2)]
   }
-};
+}
 
 /**
  * Core normalization functions
@@ -336,13 +336,13 @@ const NormalizationCore = {
    * @returns {number} Normalized value
    */
   minMaxScale: (value, min, max, targetMin = 0, targetMax = 1) => {
-    if (!DataTypeUtils.isValidNumeric(value)) return targetMin;
-    if (min === max) return targetMin;
-    if (value <= min) return targetMin;
-    if (value >= max) return targetMax;
-    
-    const ratio = (value - min) / (max - min);
-    return targetMin + ratio * (targetMax - targetMin);
+    if (!DataTypeUtils.isValidNumeric(value)) return targetMin
+    if (min === max) return targetMin
+    if (value <= min) return targetMin
+    if (value >= max) return targetMax
+
+    const ratio = (value - min) / (max - min)
+    return targetMin + ratio * (targetMax - targetMin)
   },
 
   /**
@@ -353,8 +353,8 @@ const NormalizationCore = {
    * @returns {number} Z-score normalized value
    */
   zScoreNormalize: (value, mean, std) => {
-    if (!DataTypeUtils.isValidNumeric(value) || std === 0) return 0;
-    return (value - mean) / std;
+    if (!DataTypeUtils.isValidNumeric(value) || std === 0) return 0
+    return (value - mean) / std
   },
 
   /**
@@ -365,8 +365,8 @@ const NormalizationCore = {
    * @returns {number} Robust scaled value
    */
   robustScale: (value, median, iqr) => {
-    if (!DataTypeUtils.isValidNumeric(value) || iqr === 0) return 0;
-    return (value - median) / iqr;
+    if (!DataTypeUtils.isValidNumeric(value) || iqr === 0) return 0
+    return (value - median) / iqr
   },
 
   /**
@@ -377,7 +377,7 @@ const NormalizationCore = {
    * @returns {number} Unit normalized value
    */
   normalizeToUnit: (value, min, max) => {
-    return NormalizationCore.minMaxScale(value, min, max, 0, 1);
+    return NormalizationCore.minMaxScale(value, min, max, 0, 1)
   },
 
   /**
@@ -388,9 +388,9 @@ const NormalizationCore = {
    * @returns {number} Percentage normalized value
    */
   normalizeToPercent: (value, min, max) => {
-    return NormalizationCore.minMaxScale(value, min, max, 0, 100);
+    return NormalizationCore.minMaxScale(value, min, max, 0, 100)
   }
-};
+}
 
 /**
  * Batch processing utilities for datasets
@@ -410,123 +410,123 @@ const BatchProcessor = {
       preserveOriginal = true,
       roundDecimals = 2,
       handleMissing = 'default'
-    } = options;
+    } = options
 
     if (!Array.isArray(dataset) || dataset.length === 0) {
       return {
         data: [],
         metadata: {
-          fields: fields,
-          mode: mode,
+          fields,
+          mode,
           ranges: {},
           statistics: {},
           outliers: {},
           count: 0,
           timestamp: Date.now(),
-          options: options
+          options
         }
-      };
+      }
     }
 
     const metadata = {
-      fields: fields,
-      mode: mode,
+      fields,
+      mode,
       ranges: {},
       statistics: {},
       outliers: {},
       count: dataset.length,
       timestamp: Date.now(),
-      options: options
-    };
+      options
+    }
 
     // Process each field
     fields.forEach(field => {
-      const values = dataset.map(item => item[field]);
-      const numericValues = DataTypeUtils.filterNumeric(values);
-      
+      const values = dataset.map(item => item[field])
+      const numericValues = DataTypeUtils.filterNumeric(values)
+
       // Calculate statistics
-      const stats = StatisticalUtils.calculateStats(numericValues);
-      metadata.statistics[field] = stats;
+      const stats = StatisticalUtils.calculateStats(numericValues)
+      metadata.statistics[field] = stats
 
       // Detect outliers if requested
-      let cleanValues = numericValues;
+      let cleanValues = numericValues
       if (outlierDetection !== NORMALIZATION_CONFIG.OUTLIER_METHODS.NONE) {
-        const outlierResult = StatisticalUtils.detectOutliers(numericValues, outlierDetection);
-        metadata.outliers[field] = outlierResult;
-        cleanValues = outlierResult.cleanValues;
+        const outlierResult = StatisticalUtils.detectOutliers(numericValues, outlierDetection)
+        metadata.outliers[field] = outlierResult
+        cleanValues = outlierResult.cleanValues
       }
 
       // Recalculate stats for clean values if outliers were removed
       if (cleanValues.length !== numericValues.length && cleanValues.length > 0) {
-        const cleanStats = StatisticalUtils.calculateStats(cleanValues);
-        metadata.ranges[field] = cleanStats;
+        const cleanStats = StatisticalUtils.calculateStats(cleanValues)
+        metadata.ranges[field] = cleanStats
       } else {
-        metadata.ranges[field] = stats;
+        metadata.ranges[field] = stats
       }
-    });
+    })
 
     // Normalize the dataset
     const normalizedData = dataset.map(item => {
-      const normalized = { ...item };
-      
+      const normalized = { ...item }
+
       fields.forEach(field => {
-        const originalValue = item[field];
-        const numericValue = DataTypeUtils.toNumeric(originalValue);
-        
+        const originalValue = item[field]
+        const numericValue = DataTypeUtils.toNumeric(originalValue)
+
         if (numericValue !== null) {
-          const range = metadata.ranges[field];
-          let normalizedValue;
+          const range = metadata.ranges[field]
+          let normalizedValue
 
           switch (mode) {
             case NORMALIZATION_CONFIG.MODES.UNIT:
             case NORMALIZATION_CONFIG.MODES.MINMAX:
-              normalizedValue = NormalizationCore.normalizeToUnit(numericValue, range.min, range.max);
-              break;
-            
+              normalizedValue = NormalizationCore.normalizeToUnit(numericValue, range.min, range.max)
+              break
+
             case NORMALIZATION_CONFIG.MODES.PERCENT:
-              normalizedValue = NormalizationCore.normalizeToPercent(numericValue, range.min, range.max);
-              break;
-            
+              normalizedValue = NormalizationCore.normalizeToPercent(numericValue, range.min, range.max)
+              break
+
             case NORMALIZATION_CONFIG.MODES.ZSCORE:
-              normalizedValue = NormalizationCore.zScoreNormalize(numericValue, range.mean, range.std);
-              break;
-            
+              normalizedValue = NormalizationCore.zScoreNormalize(numericValue, range.mean, range.std)
+              break
+
             case NORMALIZATION_CONFIG.MODES.ROBUST:
-              normalizedValue = NormalizationCore.robustScale(numericValue, range.median, range.iqr);
-              break;
-            
+              normalizedValue = NormalizationCore.robustScale(numericValue, range.median, range.iqr)
+              break
+
             default:
-              normalizedValue = NormalizationCore.normalizeToUnit(numericValue, range.min, range.max);
+              normalizedValue = NormalizationCore.normalizeToUnit(numericValue, range.min, range.max)
           }
 
           // Round to specified decimal places
           if (roundDecimals >= 0) {
-            normalizedValue = Math.round(normalizedValue * Math.pow(10, roundDecimals)) / Math.pow(10, roundDecimals);
+            normalizedValue = Math.round(normalizedValue * Math.pow(10, roundDecimals)) / Math.pow(10, roundDecimals)
           }
 
-          normalized[`${field}_normalized`] = normalizedValue;
-          
+          normalized[`${field}_normalized`] = normalizedValue
+
           if (preserveOriginal) {
-            normalized[`${field}_original`] = originalValue;
+            normalized[`${field}_original`] = originalValue
           }
         } else {
           // Handle missing or invalid values
-          const defaultValue = NORMALIZATION_CONFIG.DEFAULT_VALUES[mode] || 0;
-          normalized[`${field}_normalized`] = defaultValue;
-          
+          const defaultValue = NORMALIZATION_CONFIG.DEFAULT_VALUES[mode] || 0
+          normalized[`${field}_normalized`] = defaultValue
+
           if (preserveOriginal) {
-            normalized[`${field}_original`] = originalValue;
+            normalized[`${field}_original`] = originalValue
           }
         }
-      });
-      
-      return normalized;
-    });
+      })
+
+      return normalized
+    })
 
     return {
       data: normalizedData,
-      metadata: metadata
-    };
+      metadata
+    }
   },
 
   /**
@@ -539,40 +539,40 @@ const BatchProcessor = {
   computeRanges: (dataset, fields, options = {}) => {
     const {
       outlierDetection = NORMALIZATION_CONFIG.OUTLIER_METHODS.NONE
-    } = options;
+    } = options
 
     if (!Array.isArray(dataset) || dataset.length === 0) {
       return fields.reduce((acc, field) => {
-        acc[field] = { min: 0, max: 1, count: 0 };
-        return acc;
-      }, {});
+        acc[field] = { min: 0, max: 1, count: 0 }
+        return acc
+      }, {})
     }
 
-    const ranges = {};
-    
+    const ranges = {}
+
     fields.forEach(field => {
-      const values = dataset.map(item => item[field]);
-      const numericValues = DataTypeUtils.filterNumeric(values);
-      
+      const values = dataset.map(item => item[field])
+      const numericValues = DataTypeUtils.filterNumeric(values)
+
       if (numericValues.length === 0) {
-        ranges[field] = { min: 0, max: 1, count: 0 };
+        ranges[field] = { min: 0, max: 1, count: 0 }
       } else {
-        let processedValues = numericValues;
-        
+        let processedValues = numericValues
+
         // Apply outlier detection if requested
         if (outlierDetection !== NORMALIZATION_CONFIG.OUTLIER_METHODS.NONE) {
-          const outlierResult = StatisticalUtils.detectOutliers(numericValues, outlierDetection);
-          processedValues = outlierResult.cleanValues;
+          const outlierResult = StatisticalUtils.detectOutliers(numericValues, outlierDetection)
+          processedValues = outlierResult.cleanValues
         }
-        
-        const stats = StatisticalUtils.calculateStats(processedValues);
-        ranges[field] = stats;
-      }
-    });
 
-    return ranges;
+        const stats = StatisticalUtils.calculateStats(processedValues)
+        ranges[field] = stats
+      }
+    })
+
+    return ranges
   }
-};
+}
 
 /**
  * Edge case handlers
@@ -590,16 +590,16 @@ const EdgeCaseHandlers = {
       return {
         data: [],
         metadata: {
-          fields: fields,
-          mode: mode,
+          fields,
+          mode,
           ranges: {},
           count: 0,
           isEmpty: true,
           timestamp: Date.now()
         }
-      };
+      }
     }
-    return null;
+    return null
   },
 
   /**
@@ -610,18 +610,18 @@ const EdgeCaseHandlers = {
    * @returns {Object|null} Special handling result or null
    */
   handleSingleValue: (values, field, mode) => {
-    const numericValues = DataTypeUtils.filterNumeric(values);
-    
+    const numericValues = DataTypeUtils.filterNumeric(values)
+
     if (numericValues.length === 1) {
-      const value = numericValues[0];
+      const value = numericValues[0]
       return {
         min: 0,
         max: value || 1,
         isSingleValue: true,
-        value: value
-      };
+        value
+      }
     }
-    return null;
+    return null
   },
 
   /**
@@ -631,22 +631,22 @@ const EdgeCaseHandlers = {
    * @returns {Object|null} Special handling result or null
    */
   handleUniformValues: (values, field) => {
-    const numericValues = DataTypeUtils.filterNumeric(values);
-    
+    const numericValues = DataTypeUtils.filterNumeric(values)
+
     if (numericValues.length > 1) {
-      const firstValue = numericValues[0];
-      const allSame = numericValues.every(val => val === firstValue);
-      
+      const firstValue = numericValues[0]
+      const allSame = numericValues.every(val => val === firstValue)
+
       if (allSame) {
         return {
           min: firstValue,
           max: firstValue,
           isUniform: true,
           value: firstValue
-        };
+        }
       }
     }
-    return null;
+    return null
   },
 
   /**
@@ -657,36 +657,36 @@ const EdgeCaseHandlers = {
    * @returns {Object} Validation result
    */
   validateInput: (dataset, fields, mode) => {
-    const errors = [];
-    const warnings = [];
+    const errors = []
+    const warnings = []
 
     // Validate dataset
     if (!Array.isArray(dataset)) {
-      errors.push('Dataset must be an array');
+      errors.push('Dataset must be an array')
     } else if (dataset.length === 0) {
-      warnings.push('Dataset is empty');
+      warnings.push('Dataset is empty')
     }
 
     // Validate fields
     if (!Array.isArray(fields)) {
-      errors.push('Fields must be an array');
+      errors.push('Fields must be an array')
     } else if (fields.length === 0) {
-      warnings.push('No fields specified for normalization');
+      warnings.push('No fields specified for normalization')
     }
 
     // Validate mode
-    const validModes = Object.values(NORMALIZATION_CONFIG.MODES);
+    const validModes = Object.values(NORMALIZATION_CONFIG.MODES)
     if (!validModes.includes(mode)) {
-      errors.push(`Invalid normalization mode: ${mode}. Valid modes: ${validModes.join(', ')}`);
+      errors.push(`Invalid normalization mode: ${mode}. Valid modes: ${validModes.join(', ')}`)
     }
 
     return {
       isValid: errors.length === 0,
-      errors: errors,
-      warnings: warnings
-    };
+      errors,
+      warnings
+    }
   }
-};
+}
 
 /**
  * Main normalization interface
@@ -702,19 +702,19 @@ const Normalizer = {
    */
   normalize: (dataset, fields, mode = NORMALIZATION_CONFIG.MODES.UNIT, options = {}) => {
     // Validate input
-    const validation = EdgeCaseHandlers.validateInput(dataset, fields, mode);
+    const validation = EdgeCaseHandlers.validateInput(dataset, fields, mode)
     if (!validation.isValid) {
-      throw new Error(`Normalization validation failed: ${validation.errors.join(', ')}`);
+      throw new Error(`Normalization validation failed: ${validation.errors.join(', ')}`)
     }
 
     // Handle empty dataset
-    const emptyResult = EdgeCaseHandlers.handleEmptyDataset(dataset, fields, mode);
+    const emptyResult = EdgeCaseHandlers.handleEmptyDataset(dataset, fields, mode)
     if (emptyResult) {
-      return emptyResult;
+      return emptyResult
     }
 
     // Perform normalization
-    return BatchProcessor.normalizeDataset(dataset, fields, mode, options);
+    return BatchProcessor.normalizeDataset(dataset, fields, mode, options)
   },
 
   /**
@@ -724,33 +724,33 @@ const Normalizer = {
    * @returns {Array<number>} Normalized values
    */
   normalizeValues: (values, mode = NORMALIZATION_CONFIG.MODES.UNIT) => {
-    const numericValues = DataTypeUtils.filterNumeric(values);
-    
+    const numericValues = DataTypeUtils.filterNumeric(values)
+
     if (numericValues.length === 0) {
-      return [];
+      return []
     }
 
-    const stats = StatisticalUtils.calculateStats(numericValues);
-    
+    const stats = StatisticalUtils.calculateStats(numericValues)
+
     return numericValues.map(value => {
       switch (mode) {
         case NORMALIZATION_CONFIG.MODES.UNIT:
         case NORMALIZATION_CONFIG.MODES.MINMAX:
-          return NormalizationCore.normalizeToUnit(value, stats.min, stats.max);
-        
+          return NormalizationCore.normalizeToUnit(value, stats.min, stats.max)
+
         case NORMALIZATION_CONFIG.MODES.PERCENT:
-          return NormalizationCore.normalizeToPercent(value, stats.min, stats.max);
-        
+          return NormalizationCore.normalizeToPercent(value, stats.min, stats.max)
+
         case NORMALIZATION_CONFIG.MODES.ZSCORE:
-          return NormalizationCore.zScoreNormalize(value, stats.mean, stats.std);
-        
+          return NormalizationCore.zScoreNormalize(value, stats.mean, stats.std)
+
         case NORMALIZATION_CONFIG.MODES.ROBUST:
-          return NormalizationCore.robustScale(value, stats.median, stats.iqr);
-        
+          return NormalizationCore.robustScale(value, stats.median, stats.iqr)
+
         default:
-          return NormalizationCore.normalizeToUnit(value, stats.min, stats.max);
+          return NormalizationCore.normalizeToUnit(value, stats.min, stats.max)
       }
-    });
+    })
   },
 
   /**
@@ -761,78 +761,78 @@ const Normalizer = {
    * @returns {Object} Normalization context
    */
   createContext: (dataset, fields, options = {}) => {
-    const ranges = BatchProcessor.computeRanges(dataset, fields, options);
-    
+    const ranges = BatchProcessor.computeRanges(dataset, fields, options)
+
     return {
-      ranges: ranges,
-      fields: fields,
+      ranges,
+      fields,
       count: dataset.length,
       timestamp: Date.now(),
-      options: options,
-      
+      options,
+
       // Method to apply normalization using this context
       apply: (value, field, mode = NORMALIZATION_CONFIG.MODES.UNIT) => {
-        const range = ranges[field];
+        const range = ranges[field]
         if (!range) {
-          throw new Error(`Field '${field}' not found in normalization context`);
+          throw new Error(`Field '${field}' not found in normalization context`)
         }
 
-        const numericValue = DataTypeUtils.toNumeric(value);
+        const numericValue = DataTypeUtils.toNumeric(value)
         if (numericValue === null) {
-          return NORMALIZATION_CONFIG.DEFAULT_VALUES[mode] || 0;
+          return NORMALIZATION_CONFIG.DEFAULT_VALUES[mode] || 0
         }
 
         switch (mode) {
           case NORMALIZATION_CONFIG.MODES.UNIT:
           case NORMALIZATION_CONFIG.MODES.MINMAX:
-            return NormalizationCore.normalizeToUnit(numericValue, range.min, range.max);
-          
+            return NormalizationCore.normalizeToUnit(numericValue, range.min, range.max)
+
           case NORMALIZATION_CONFIG.MODES.PERCENT:
-            return NormalizationCore.normalizeToPercent(numericValue, range.min, range.max);
-          
+            return NormalizationCore.normalizeToPercent(numericValue, range.min, range.max)
+
           case NORMALIZATION_CONFIG.MODES.ZSCORE:
-            return NormalizationCore.zScoreNormalize(numericValue, range.mean, range.std);
-          
+            return NormalizationCore.zScoreNormalize(numericValue, range.mean, range.std)
+
           case NORMALIZATION_CONFIG.MODES.ROBUST:
-            return NormalizationCore.robustScale(numericValue, range.median, range.iqr);
-          
+            return NormalizationCore.robustScale(numericValue, range.median, range.iqr)
+
           default:
-            return NormalizationCore.normalizeToUnit(numericValue, range.min, range.max);
+            return NormalizationCore.normalizeToUnit(numericValue, range.min, range.max)
         }
       }
-    };
+    }
   }
-};
+}
 
 // Export the complete normalization module
 module.exports = {
   // Main interface
   Normalizer,
-  
+
   // Core functions
   ...NormalizationCore,
-  
+
   // Utilities
   DataTypeUtils,
   StatisticalUtils,
   BatchProcessor,
   EdgeCaseHandlers,
-  
+
   // Configuration
   NORMALIZATION_CONFIG,
-  
+
   // Convenience aliases for backward compatibility
   normalizeDataset: BatchProcessor.normalizeDataset,
   computeRanges: BatchProcessor.computeRanges,
   normalize: Normalizer.normalize,
   normalizeValues: Normalizer.normalizeValues,
   createContext: Normalizer.createContext,
-  
+
   // Legacy function names for compatibility with existing code
   scaleLinear: NormalizationCore.minMaxScale,
   normalizeToUnit: NormalizationCore.normalizeToUnit,
   normalizeToPercent: NormalizationCore.normalizeToPercent,
   computeNormalization: (dataset, fields, mode = 'unit') => {
-    return BatchProcessor.normalizeDataset(dataset, fields, mode);
+    return BatchProcessor.normalizeDataset(dataset, fields, mode)
   }
-};
+}
