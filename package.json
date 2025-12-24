@@ -42,7 +42,12 @@
     "html-sanitization",
     "url-validation",
     "encryption",
-    "afk-guard"
+    "afk-guard",
+    "studio-rig",
+    "live-rig",
+    "orchestra",
+    "dj-booth",
+    "audio-production"
   ],
   "license": "MIT",
   "main": "main.js",
@@ -133,6 +138,12 @@
       "provider": "generic",
       "url": "https://your-download-server.com/releases/"
     }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "keytar"
+    ]
   },
   "funding": [
     {
