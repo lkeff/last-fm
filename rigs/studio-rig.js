@@ -381,13 +381,95 @@ const STUDIO_RIG = {
             { manufacturer: 'Hammond', model: 'B3', type: 'Organ with Leslie 122' },
             { manufacturer: 'Fender', model: 'Rhodes Mark I', type: 'Electric piano' },
             { manufacturer: 'Wurlitzer', model: '200A', type: 'Electric piano' },
-            { manufacturer: 'Moog', model: 'Minimoog Model D', type: 'Analog synth' },
+            { manufacturer: 'Moog', model: 'Minimoog Model D', type: 'Analog synth', quantity: 2 },
             { manufacturer: 'Sequential', model: 'Prophet-5 Rev4', type: 'Analog polysynth' },
             { manufacturer: 'Oberheim', model: 'OB-X8', type: 'Analog polysynth' },
             { manufacturer: 'Roland', model: 'Jupiter-8', type: 'Analog polysynth' },
             { manufacturer: 'Yamaha', model: 'DX7', type: 'FM synth' },
             { manufacturer: 'Nord', model: 'Stage 4', type: 'Stage keyboard' }
         ],
+        moogModular: {
+            description: 'Dual Moog Modular Synthesizer System with Patchwork',
+            systems: [
+                {
+                    name: 'Moog System A',
+                    manufacturer: 'Moog',
+                    model: 'System 55',
+                    modules: [
+                        { type: '921 Oscillator', quantity: 3 },
+                        { type: '921A Oscillator Driver', quantity: 1 },
+                        { type: '921B Oscillator', quantity: 6 },
+                        { type: '904A Low Pass Filter', quantity: 2 },
+                        { type: '904B High Pass Filter', quantity: 1 },
+                        { type: '904C Filter Coupler', quantity: 1 },
+                        { type: '911 Envelope Generator', quantity: 3 },
+                        { type: '911A Dual Trigger Delay', quantity: 1 },
+                        { type: '902 Voltage Controlled Amplifier', quantity: 2 },
+                        { type: '903A Random Signal Generator', quantity: 1 },
+                        { type: '995 Attenuators', quantity: 2 },
+                        { type: '994 Multiples', quantity: 4 },
+                        { type: '992 Control Voltages', quantity: 2 },
+                        { type: '984 Four Channel Mixer', quantity: 2 },
+                        { type: '960 Sequential Controller', quantity: 1 },
+                        { type: '962 Sequential Switch', quantity: 1 }
+                    ],
+                    cabinet: 'Walnut wood cabinet',
+                    patchPoints: 144
+                },
+                {
+                    name: 'Moog System B',
+                    manufacturer: 'Moog',
+                    model: 'System 35',
+                    modules: [
+                        { type: '921 Oscillator', quantity: 2 },
+                        { type: '921A Oscillator Driver', quantity: 1 },
+                        { type: '921B Oscillator', quantity: 4 },
+                        { type: '904A Low Pass Filter', quantity: 2 },
+                        { type: '911 Envelope Generator', quantity: 2 },
+                        { type: '902 Voltage Controlled Amplifier', quantity: 2 },
+                        { type: '903A Random Signal Generator', quantity: 1 },
+                        { type: '995 Attenuators', quantity: 1 },
+                        { type: '994 Multiples', quantity: 2 },
+                        { type: '984 Four Channel Mixer', quantity: 1 },
+                        { type: '960 Sequential Controller', quantity: 1 }
+                    ],
+                    cabinet: 'Walnut wood cabinet',
+                    patchPoints: 96
+                }
+            ],
+            patchwork: {
+                cables: {
+                    type: 'Moog 3.5mm patch cables',
+                    lengths: ['6 inch', '12 inch', '24 inch', '36 inch', '48 inch'],
+                    colors: ['Black', 'Red', 'Blue', 'Yellow', 'Green', 'Orange', 'Purple', 'White'],
+                    quantity: 200
+                },
+                patchBay: {
+                    manufacturer: 'Moog',
+                    model: 'CP3 Mixer/Patchbay',
+                    quantity: 2,
+                    purpose: 'Cross-patching between systems'
+                },
+                cvDistribution: {
+                    manufacturer: 'Moog',
+                    model: '994 Multiples',
+                    quantity: 8,
+                    purpose: 'CV/Gate signal distribution'
+                }
+            },
+            accessories: [
+                { type: 'Moog 951 Keyboard Controller', quantity: 2 },
+                { type: 'Moog 952 Duophonic Keyboard', quantity: 1 },
+                { type: 'Moog 1125 Sample-Hold', quantity: 2 },
+                { type: 'Moog 1630 Linear Controller', quantity: 2 }
+            ],
+            midiInterface: {
+                manufacturer: 'Kenton',
+                model: 'Pro Solo MkIII',
+                quantity: 2,
+                purpose: 'MIDI to CV/Gate conversion'
+            }
+        },
         guitars: [
             { manufacturer: 'Gibson', model: 'Les Paul Standard', type: 'Electric' },
             { manufacturer: 'Fender', model: 'Stratocaster', type: 'Electric' },
@@ -426,15 +508,64 @@ const STUDIO_RIG = {
                 finish: 'Black Oyster Pearl'
             }
         ],
-        percussion: [
-            'Latin Percussion congas',
-            'LP bongos',
-            'Meinl cajón',
-            'Various shakers and tambourines',
-            'Glockenspiel',
-            'Vibraphone',
-            'Timpani set'
-        ]
+        percussion: {
+            description: 'Dual Percussion Sets - Full World and Orchestral Collection',
+            setA: {
+                name: 'World Percussion Set',
+                instruments: [
+                    { manufacturer: 'Latin Percussion', model: 'Galaxy Congas', type: 'Congas', sizes: ['11"', '11.75"', '12.5"'] },
+                    { manufacturer: 'Latin Percussion', model: 'Matador Bongos', type: 'Bongos', sizes: ['7.25"', '8.625"'] },
+                    { manufacturer: 'Meinl', model: 'Artisan Edition', type: 'Cajón', quantity: 2 },
+                    { manufacturer: 'Meinl', model: 'Headliner Series', type: 'Djembe', sizes: ['10"', '12"'] },
+                    { manufacturer: 'Latin Percussion', model: 'Timbales', type: 'Timbales', sizes: ['13"', '14"'] },
+                    { manufacturer: 'Meinl', model: 'Luis Conte Shakers', type: 'Shakers', quantity: 8 },
+                    { manufacturer: 'Latin Percussion', model: 'Tambourine', type: 'Tambourine', quantity: 4 },
+                    { manufacturer: 'Meinl', model: 'Surdo', type: 'Surdo', sizes: ['16"', '18"', '20"'] },
+                    { manufacturer: 'Latin Percussion', model: 'Cowbells', type: 'Cowbells', quantity: 6 },
+                    { manufacturer: 'Meinl', model: 'Udu Drum', type: 'Udu', quantity: 2 },
+                    { manufacturer: 'Remo', model: 'Ocean Drum', type: 'Effects', sizes: ['16"', '22"'] },
+                    { manufacturer: 'TreeWorks', model: 'Classic Chimes', type: 'Wind Chimes', quantity: 3 }
+                ],
+                stands: 'Gibraltar percussion rack system',
+                cases: 'SKB percussion cases'
+            },
+            setB: {
+                name: 'Orchestral Percussion Set',
+                instruments: [
+                    { manufacturer: 'Yamaha', model: 'YM-6100', type: 'Marimba', range: '5 octave' },
+                    { manufacturer: 'Musser', model: 'M55', type: 'Vibraphone', range: '3 octave' },
+                    { manufacturer: 'Yamaha', model: 'YX-500R', type: 'Xylophone', range: '3.5 octave' },
+                    { manufacturer: 'Adams', model: 'Artist Series', type: 'Glockenspiel', range: '3.3 octave' },
+                    { manufacturer: 'Deagan', model: 'Century', type: 'Tubular Bells', range: '1.5 octave' },
+                    { manufacturer: 'Zildjian', model: 'Crotales', type: 'Crotales', range: '2 octave' },
+                    { manufacturer: 'Ludwig', model: 'Grand Symphonic', type: 'Timpani', sizes: ['32"', '29"', '26"', '23"', '20"'] },
+                    { manufacturer: 'Grover', model: 'Concert Snare', type: 'Concert Snare Drum', size: '14x5"' },
+                    { manufacturer: 'Adams', model: 'Concert Bass Drum', type: 'Concert Bass Drum', size: '36x18"' },
+                    { manufacturer: 'Zildjian', model: 'Orchestral Cymbals', type: 'Crash Cymbals', sizes: ['18"', '20"'] },
+                    { manufacturer: 'Paiste', model: 'Symphonic Gong', type: 'Tam-tam', sizes: ['32"', '40"'] },
+                    { manufacturer: 'Black Swamp', model: 'Concert Triangle', type: 'Triangle', sizes: ['6"', '8"', '10"'] }
+                ],
+                mallets: {
+                    manufacturer: 'Vic Firth',
+                    types: [
+                        { type: 'Marimba mallets', hardness: ['Soft', 'Medium', 'Hard'], quantity: 12 },
+                        { type: 'Vibraphone mallets', hardness: ['Soft', 'Medium', 'Hard'], quantity: 8 },
+                        { type: 'Xylophone mallets', hardness: ['Brass', 'Plastic', 'Rubber'], quantity: 6 },
+                        { type: 'Timpani mallets', hardness: ['Soft', 'Medium', 'Hard', 'Staccato'], quantity: 16 },
+                        { type: 'Bass drum beaters', types: ['General', 'Soft', 'Rolling'], quantity: 6 },
+                        { type: 'Glockenspiel mallets', types: ['Brass', 'Plastic'], quantity: 4 }
+                    ]
+                },
+                stands: 'Yamaha concert percussion stands',
+                cases: 'Humes & Berg Enduro cases'
+            },
+            shared: [
+                { type: 'Percussion table', manufacturer: 'Gibraltar', quantity: 4 },
+                { type: 'Cymbal stands', manufacturer: 'DW 9000', quantity: 8 },
+                { type: 'Music stands', manufacturer: 'Manhasset', quantity: 6 },
+                { type: 'Percussion rug', size: '6x8 ft', quantity: 4 }
+            ]
+        }
     },
 
     /**
