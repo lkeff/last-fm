@@ -137,9 +137,9 @@ const validators = {
    */
   isValidSample: (sample) => {
     return sample &&
-           typeof sample === 'object' &&
-           typeof sample.name === 'string' &&
-           sample.name.trim().length > 0
+      typeof sample === 'object' &&
+      typeof sample.name === 'string' &&
+      sample.name.trim().length > 0
   },
 
   /**
@@ -252,7 +252,7 @@ const utils = {
    */
   debounce: (func, wait) => {
     let timeout
-    return function executedFunction (...args) {
+    return function executedFunction(...args) {
       const later = () => {
         clearTimeout(timeout)
         func(...args)
@@ -480,7 +480,7 @@ const utils = {
  * @param {Object} options - Additional options for security
  * @returns {Function} Wrapped API function
  */
-function createSecureApiWrapper (channel, validator = null, options = {}) {
+function createSecureApiWrapper(channel, validator = null, options = {}) {
   const {
     requiresAuth = false,
     rateLimitKey = null,
@@ -540,7 +540,7 @@ function createSecureApiWrapper (channel, validator = null, options = {}) {
 /**
  * Legacy API wrapper for backward compatibility
  */
-function createApiWrapper (channel, validator = null) {
+function createApiWrapper(channel, validator = null) {
   return createSecureApiWrapper(channel, validator)
 }
 
@@ -756,6 +756,16 @@ contextBridge.exposeInMainWorld('api', {
   addBrassSample: createSecureApiWrapper('add-brass-sample',
     (sample) => validators.isValidSample(sample),
     { rateLimitKey: 'add-sample', maxCalls: 10, windowMs: 60000 }
+  ),
+
+  /**
+   * Transcribe audio file using Whisper
+   * @param {string} filePath - Path to the audio file
+   * @returns {Promise<Object>} Transcription result
+   */
+  transcribeAudio: createSecureApiWrapper('transcribe-audio',
+    (filePath) => typeof filePath === 'string',
+    { rateLimitKey: 'transcribe', maxCalls: 5, windowMs: 60000 }
   ),
 
   /**

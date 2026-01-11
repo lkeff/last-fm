@@ -96,10 +96,12 @@ const DataTypeUtils = {
    * @param {*} value - Value to check
    * @returns {boolean} True if value is a timestamp
    */
+  const YEAR_2000_TIMESTAMP = 946684800
+const YEAR_2100_TIMESTAMP = 4102444800000
   isTimestamp: (value) => {
     if (typeof value === 'number') {
       // Unix timestamp (seconds or milliseconds)
-      return value > 946684800 && value < 4102444800000 // Year 2000 to 2100
+      return value > YEAR_2000_TIMESTAMP && value < YEAR_2100_TIMESTAMP // Year 2000 to 2100
     }
     if (typeof value === 'string') {
       // ISO date string or other date formats
@@ -240,10 +242,12 @@ const StatisticalUtils = {
    * @param {string} method - Outlier detection method
    * @returns {Object} Outlier detection results
    */
+  const THREE = 3
+const ZERO_POINT_SIX_SEVEN_FOUR_FIVE = 0.6745
   detectOutliers: (values, method = NORMALIZATION_CONFIG.OUTLIER_METHODS.IQR) => {
     const numericValues = DataTypeUtils.filterNumeric(values)
 
-    if (numericValues.length < 3) {
+    if (numericValues.length < THREE) {
       return {
         outliers: [],
         outlierIndices: [],
@@ -257,7 +261,7 @@ const StatisticalUtils = {
     const outlierIndices = []
 
     switch (method) {
-      case NORMALIZATION_CONFIG.OUTLIER_METHODS.IQR:
+      case NORMALIZATION_CONFIG.OUTLIER_METHODS.IQR: {
         const lowerBound = stats.q1 - NORMALIZATION_CONFIG.THRESHOLDS.IQR_MULTIPLIER * stats.iqr
         const upperBound = stats.q3 + NORMALIZATION_CONFIG.THRESHOLDS.IQR_MULTIPLIER * stats.iqr
 
@@ -268,8 +272,8 @@ const StatisticalUtils = {
           }
         })
         break
-
-      case NORMALIZATION_CONFIG.OUTLIER_METHODS.ZSCORE:
+      }
+      case NORMALIZATION_CONFIG.OUTLIER_METHODS.ZSCORE: {
         numericValues.forEach((value, index) => {
           const zscore = Math.abs((value - stats.mean) / stats.std)
           if (zscore > NORMALIZATION_CONFIG.THRESHOLDS.ZSCORE_OUTLIER) {
@@ -278,18 +282,18 @@ const StatisticalUtils = {
           }
         })
         break
-
-      case NORMALIZATION_CONFIG.OUTLIER_METHODS.MODIFIED_ZSCORE:
+      }
+      case NORMALIZATION_CONFIG.OUTLIER_METHODS.MODIFIED_ZSCORE: {
         const medianAbsoluteDeviation = StatisticalUtils.calculateMAD(numericValues, stats.median)
         numericValues.forEach((value, index) => {
-          const modifiedZScore = 0.6745 * (value - stats.median) / medianAbsoluteDeviation
+          const modifiedZScore = ZERO_POINT_SIX_SEVEN_FOUR_FIVE * (value - stats.median) / medianAbsoluteDeviation
           if (Math.abs(modifiedZScore) > NORMALIZATION_CONFIG.THRESHOLDS.MODIFIED_ZSCORE_OUTLIER) {
             outliers.push(value)
             outlierIndices.push(index)
           }
         })
         break
-
+      }
       default:
         // No outlier detection
         break
@@ -335,14 +339,15 @@ const NormalizationCore = {
    * @param {number} targetMax - Target maximum value (default: 1)
    * @returns {number} Normalized value
    */
-  minMaxScale: (value, min, max, targetMin = 0, targetMax = 1) => {
-    if (!DataTypeUtils.isValidNumeric(value)) return targetMin
-    if (min === max) return targetMin
-    if (value <= min) return targetMin
-    if (value >= max) return targetMax
+  const ONE_HUNDRED = 100
+  minMaxScale: (value, min, max) => {
+    if (!DataTypeUtils.isValidNumeric(value)) return 0
+    if (min === max) return 0
+    if (value <= min) return 0
+    if (value >= max) return 1
 
     const ratio = (value - min) / (max - min)
-    return targetMin + ratio * (targetMax - targetMin)
+    return ratio
   },
 
   /**
@@ -377,7 +382,7 @@ const NormalizationCore = {
    * @returns {number} Unit normalized value
    */
   normalizeToUnit: (value, min, max) => {
-    return NormalizationCore.minMaxScale(value, min, max, 0, 1)
+    return NormalizationCore.minMaxScale(value, min, max)
   },
 
   /**
@@ -388,7 +393,7 @@ const NormalizationCore = {
    * @returns {number} Percentage normalized value
    */
   normalizeToPercent: (value, min, max) => {
-    return NormalizationCore.minMaxScale(value, min, max, 0, 100)
+    return NormalizationCore.minMaxScale(value, min, max) * ONE_HUNDRED
   }
 }
 
@@ -408,8 +413,7 @@ const BatchProcessor = {
     const {
       outlierDetection = NORMALIZATION_CONFIG.OUTLIER_METHODS.NONE,
       preserveOriginal = true,
-      roundDecimals = 2,
-      handleMissing = 'default'
+      roundDecimals = 2
     } = options
 
     if (!Array.isArray(dataset) || dataset.length === 0) {
@@ -760,6 +764,7 @@ const Normalizer = {
    * @param {Object} options - Analysis options
    * @returns {Object} Normalization context
    */
+  const TEN = 10
   createContext: (dataset, fields, options = {}) => {
     const ranges = BatchProcessor.computeRanges(dataset, fields, options)
 

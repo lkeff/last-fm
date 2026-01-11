@@ -8,9 +8,9 @@
  * @version 1.0.0
  */
 
-const crypto = require('crypto')
-const os = require('os')
-const { URL } = require('url')
+import crypto from 'crypto'
+import os from 'os'
+import { URL } from 'url'
 
 // Security Configuration Constants
 const SECURITY_CONFIG = {
@@ -253,6 +253,8 @@ function isUrlSafe (url) {
  * const analysis = detectSuspiciousUrl('http://bit.ly/suspicious');
  * // Returns: { suspicious: true, reasons: ['URL shortener detected'] }
  */
+const TWO = 2
+const THREE = 3
 function detectSuspiciousUrl (url) {
   const result = {
     suspicious: false,
@@ -288,15 +290,15 @@ function detectSuspiciousUrl (url) {
     }
 
     // Check for homograph attacks (mixed scripts)
-    const hasNonAscii = /[^\x00-\x7F]/.test(hostname)
+    const hasNonAscii = /[^\u0000-\u007F]/.test(hostname)
     if (hasNonAscii) {
       result.suspicious = true
       result.reasons.push('Non-ASCII characters in domain (potential homograph attack)')
     }
 
     // Check for excessive subdomains
-    const subdomainCount = hostname.split('.').length - 2
-    if (subdomainCount > 3) {
+    const subdomainCount = hostname.split('.').length - TWO
+    if (subdomainCount > THREE) {
       result.suspicious = true
       result.reasons.push('Excessive subdomains detected')
     }
@@ -408,6 +410,7 @@ function hashSensitiveData (data) {
  * const scrubbed = scrubLogData({ message: 'Login', api_key: 'secret123' });
  * // Returns: { message: 'Login', api_key: 'sha256:...' }
  */
+const PBKDF2_ITERATIONS = 100000
 function scrubLogData (logObject) {
   if (typeof logObject !== 'object' || logObject === null) {
     return logObject
@@ -506,7 +509,7 @@ function encryptData (data, key) {
  * @returns {string} Decrypted data
  * @throws {Error} If decryption fails or invalid parameters
  *
- * @example
+* @example
  * const decrypted = decryptData(encryptedData, key);
  * // Returns: 'sensitive data'
  */
@@ -577,10 +580,9 @@ function deriveKeyFromMachine () {
 
     // Derive key using PBKDF2
     const salt = crypto.createHash('sha256').update('lastfm-security-salt').digest()
-    return crypto.pbkdf2Sync(machineString, salt, 100000, SECURITY_CONFIG.ENCRYPTION.KEY_LENGTH, 'sha256')
+    return crypto.pbkdf2Sync(machineString, salt, PBKDF2_ITERATIONS, SECURITY_CONFIG.ENCRYPTION.KEY_LENGTH, 'sha256')
   } catch (error) {
     // Fallback to a less secure but functional key
-    console.warn('Failed to derive machine-specific key, using fallback')
     const fallback = 'lastfm-fallback-key-' + Date.now()
     return crypto.createHash('sha256').update(fallback).digest()
   }

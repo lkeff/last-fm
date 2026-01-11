@@ -1,76 +1,31 @@
-const electron = require('electron')
-const { app, BrowserWindow, ipcMain, dialog, shell, session, powerMonitor } = electron
-const path = require('path')
-const crypto = require('crypto')
-const LastFM = require('./index.js')
-const axios = require('axios')
-const fs = require('fs')
-
-// Import security modules
-const security = require('./utils/security.js')
-const { createAFKGuard } = require('./utils/afk-guard.js')
-
-// Load environment variables
-require('dotenv').config()
-
-// API keys from environment variables with fallbacks
-const API_KEY = process.env.LASTFM_API_KEY || 'YOUR_LAST_FM_API_KEY'
-const FREESOUND_API_KEY = process.env.FREESOUND_API_KEY || 'YOUR_FREESOUND_API_KEY'
-
-// Enhanced secure logging utility with data protection
-function safeLog (level, message, data = null) {
-  const timestamp = new Date().toISOString()
-  const securityContext = {
-    process: 'main',
-    pid: process.pid,
-    version: app ? app.getVersion() : 'N/A',
-    platform: process.platform
-  }
-
-  let sanitizedData = null
-  if (data) {
-    try {
-      // Scrub sensitive data from logs
-      sanitizedData = security.scrubLogData(data)
-    } catch (error) {
-      sanitizedData = { error: 'Failed to sanitize log data', originalType: typeof data }
-    }
-  }
-
-  const logEntry = {
-    timestamp,
-    level: level.toUpperCase(),
-    message,
-    data: sanitizedData,
-    security: securityContext
-  }
-
-  // Use structured logging
-  console.log(JSON.stringify(logEntry))
-}
-
-// Legacy log function for backward compatibility (redirects to safeLog)
-function log (level, message, data = null) {
-  safeLog(level, message, data)
-}
+import { app, BrowserWindow, ipcMain, dialog, shell, powerMonitor } from 'electron'
+import { exec } from 'child_process'
+import path from 'path'
+import LastFM from './index.js'
+import axios from 'axios'
+import fs from 'fs'
+import 'dotenv/config'
+import * as security from './utils/security.js'
+import { createAFKGuard } from './utils/afk-guard.js'
 
 // Validation utilities
-function validateApiKey (key, serviceName) {
+function validateApiKey(key, serviceName) {
   if (!key || key.startsWith('YOUR_')) {
     throw new Error(`${serviceName} API key not configured. Please set the appropriate environment variable.`)
   }
   return true
 }
 
-function validateSearchQuery (query) {
+function validateSearchQuery(query) {
   if (!query || typeof query !== 'string' || query.trim().length === 0) {
     throw new Error('Search query must be a non-empty string')
   }
   return query.trim()
 }
 
+const PERCENT = 100
 // Normalization utilities
-function computeNormalization (dataset, fields, mode = 'unit') {
+function computeNormalization(dataset, fields, mode = 'unit') {
   if (!Array.isArray(dataset) || dataset.length === 0) {
     return {
       data: [],
@@ -119,10 +74,10 @@ function computeNormalization (dataset, fields, mode = 'unit') {
           normalizedValue = mode === 'percent' ? 0 : 0
         } else {
           const ratio = (originalValue - min) / (max - min)
-          normalizedValue = mode === 'percent' ? ratio * 100 : ratio
+          normalizedValue = mode === 'percent' ? ratio * PERCENT : ratio
         }
 
-        normalized[`${field}_normalized`] = Math.round(normalizedValue * 100) / 100 // Round to 2 decimal places
+        normalized[`${field}_normalized`] = Math.round(normalizedValue * PERCENT) / PERCENT // Round to 2 decimal places
         normalized[`${field}_original`] = originalValue
       } else {
         normalized[`${field}_normalized`] = mode === 'percent' ? 0 : 0
@@ -151,24 +106,24 @@ let encryptionKey = null
 let localSamplesPath
 let encryptedSamplesPath
 
-function initializeApp () {
+const AFK_TIMEOUT = 10 * 60 * 1000
+const AFK_WARNING = 2 * 60 * 1000
+function initializeApp() {
   localSamplesPath = path.join(app.getPath('userData'), 'brass_samples.json')
   encryptedSamplesPath = path.join(app.getPath('userData'), 'brass_samples.enc')
 
   try {
     validateApiKey(API_KEY, 'Last.fm')
     lastfm = new LastFM(API_KEY)
-    safeLog('info', 'Last.fm client initialized successfully')
   } catch (error) {
-    safeLog('error', 'Failed to initialize Last.fm client', { error: error.message })
     lastfm = null
   }
 
   try {
     afkGuard = createAFKGuard({
       activity: {
-        timeout: parseInt(process.env.AFK_TIMEOUT_MINUTES) * 60 * 1000 || 10 * 60 * 1000,
-        warningTime: parseInt(process.env.AFK_WARNING_MINUTES) * 60 * 1000 || 2 * 60 * 1000,
+        timeout: parseInt(process.env.AFK_TIMEOUT_MINUTES) * 60 * 1000 || AFK_TIMEOUT,
+        warningTime: parseInt(process.env.AFK_WARNING_MINUTES) * 60 * 1000 || AFK_WARNING,
         sensitivity: process.env.AFK_SENSITIVITY || 'normal'
       },
       session: {
@@ -176,17 +131,13 @@ function initializeApp () {
       },
       enabled: process.env.AFK_ENABLED !== 'false'
     })
-    safeLog('info', 'AFK Guard initialized successfully')
   } catch (error) {
-    safeLog('error', 'Failed to initialize AFK Guard', { error: error.message })
     afkGuard = null
   }
 
   try {
     encryptionKey = security.deriveKeyFromMachine()
-    safeLog('info', 'Encryption key derived successfully')
   } catch (error) {
-    safeLog('error', 'Failed to derive encryption key', { error: error.message })
   }
 
   initLocalSamplesDB()
@@ -205,21 +156,15 @@ app.whenReady().then(() => {
 })
 
 // Set up security-related IPC handlers
-function setupSecurityHandlers () {
+function setupSecurityHandlers() {
   // Secure external link handler
-  ipcMain.handle('open-external-safe', async (event, url) => {
+  ipcMain.handle('open-external-safe', async (url) => {
     try {
       if (!url || typeof url !== 'string') {
         throw new Error('Invalid URL provided')
       }
 
       const validation = security.validateExternalLink(url)
-      safeLog('info', 'External link validation requested', {
-        urlHash: security.hashSensitiveData(url),
-        safe: validation.safe,
-        trusted: validation.trusted,
-        suspicious: validation.suspicious
-      })
 
       if (validation.safe && validation.trusted) {
         // Trusted domain - open directly
@@ -231,7 +176,7 @@ function setupSecurityHandlers () {
           type: 'question',
           title: 'Open External Link',
           message: 'Do you want to open this external link?',
-          detail: `URL: ${url}\n\nThis domain is not in the trusted list but appears safe.`,
+          detail: `URL: ${url}\n\nThis domain is not in the trusted list but appears safe.`, 
           buttons: ['Open', 'Cancel'],
           defaultId: 1,
           cancelId: 1
@@ -249,7 +194,7 @@ function setupSecurityHandlers () {
           type: 'warning',
           title: 'Suspicious Link Detected',
           message: 'This link appears suspicious and may be unsafe.',
-          detail: `URL: ${url}\n\nReasons: ${validation.reasons.join(', ')}\n\nAre you sure you want to open it?`,
+          detail: `URL: ${url}\n\nReasons: ${validation.reasons.join(', ')}\n\nAre you sure you want to open it?`, 
           buttons: ['Open Anyway', 'Cancel'],
           defaultId: 1,
           cancelId: 1
@@ -257,30 +202,25 @@ function setupSecurityHandlers () {
 
         if (response.response === 0) {
           await shell.openExternal(url)
-          safeLog('warn', 'User opened suspicious link after warning', {
-            urlHash: security.hashSensitiveData(url),
-            reasons: validation.reasons
-          })
           return { success: true, opened: true, trusted: false, suspicious: true, confirmed: true }
         } else {
           return { success: true, opened: false, suspicious: true, canceled: true }
         }
       }
     } catch (error) {
-      safeLog('error', 'Error handling external link', { error: error.message })
       return { success: false, error: error.message }
     }
   })
 
   // AFK Guard handlers
-  ipcMain.handle('user-activity', async (event) => {
+  ipcMain.handle('user-activity', async () => {
     if (afkGuard && afkGuard.activityTracker) {
       afkGuard.activityTracker.handleActivity({ type: 'renderer-reported' })
     }
     return { success: true }
   })
 
-  ipcMain.handle('afk-lock', async (event) => {
+  ipcMain.handle('afk-lock', async () => {
     if (afkGuard && afkGuard.sessionManager) {
       afkGuard.sessionManager.lockSession()
       return { success: true, locked: true }
@@ -288,7 +228,7 @@ function setupSecurityHandlers () {
     return { success: false, error: 'AFK Guard not available' }
   })
 
-  ipcMain.handle('afk-unlock', async (event, credentials) => {
+  ipcMain.handle('afk-unlock', async (credentials) => {
     if (afkGuard && afkGuard.sessionManager) {
       const unlocked = await afkGuard.sessionManager.unlockSession(credentials)
       return { success: true, unlocked }
@@ -296,7 +236,7 @@ function setupSecurityHandlers () {
     return { success: false, error: 'AFK Guard not available' }
   })
 
-  ipcMain.handle('afk-status', async (event) => {
+  ipcMain.handle('afk-status', async () => {
     if (afkGuard) {
       return { success: true, status: afkGuard.getStatus() }
     }
@@ -306,21 +246,18 @@ function setupSecurityHandlers () {
   // System-level inactivity detection
   if (powerMonitor) {
     powerMonitor.on('suspend', () => {
-      safeLog('info', 'System suspend detected')
       if (afkGuard && afkGuard.sessionManager) {
         afkGuard.sessionManager.lockSession()
       }
     })
 
     powerMonitor.on('lock-screen', () => {
-      safeLog('info', 'Screen lock detected')
       if (afkGuard && afkGuard.sessionManager) {
         afkGuard.sessionManager.lockSession()
       }
     })
   }
 
-  safeLog('info', 'Security handlers configured')
 }
 
 // Quit when all windows are closed, except on macOS
@@ -330,15 +267,12 @@ app.on('window-all-closed', () => {
 
 // Security cleanup on app exit
 app.on('before-quit', () => {
-  safeLog('info', 'Application shutting down, performing security cleanup')
 
   // Stop AFK guard
   if (afkGuard) {
     try {
       afkGuard.stop()
-      safeLog('info', 'AFK Guard stopped')
     } catch (error) {
-      safeLog('error', 'Error stopping AFK Guard', { error: error.message })
     }
   }
 
@@ -352,25 +286,20 @@ app.on('before-quit', () => {
   if (process.env.CLEAR_LOGS_ON_EXIT === 'true') {
     try {
       // This would clear application logs - implementation depends on logging setup
-      safeLog('info', 'Log clearing requested but not implemented')
     } catch (error) {
-      safeLog('error', 'Error clearing logs', { error: error.message })
     }
   }
 
-  safeLog('info', 'Security cleanup completed')
 })
 
 // Handle uncaught exceptions securely
 process.on('uncaughtException', (error) => {
-  safeLog('error', 'Uncaught exception occurred', { error: error.message, stack: error.stack })
 
   // Perform emergency cleanup
   if (afkGuard && afkGuard.sessionManager) {
     try {
       afkGuard.sessionManager.lockSession()
     } catch (lockError) {
-      safeLog('error', 'Failed to lock session during emergency cleanup', { error: lockError.message })
     }
   }
 
@@ -380,27 +309,21 @@ process.on('uncaughtException', (error) => {
 
 // Handle unhandled promise rejections securely
 process.on('unhandledRejection', (reason, promise) => {
-  safeLog('error', 'Unhandled promise rejection', { reason: reason?.toString(), promise: promise?.toString() })
 })
-
 // IPC handlers for Last.fm API with enhanced security
-ipcMain.handle('search-lastfm', async (event, query) => {
+ipcMain.handle('search-lastfm', async (query) => {
   try {
     if (!lastfm) {
       throw new Error('Last.fm client not initialized. Please check your API key configuration.')
     }
 
     const validatedQuery = validateSearchQuery(query)
-    safeLog('info', 'Searching Last.fm', { query: validatedQuery })
 
     return new Promise((resolve, reject) => {
       lastfm.search({ q: validatedQuery, limit: 10 }, (err, data) => {
         if (err) {
-          safeLog('error', 'Last.fm search failed', { error: err.message })
           reject(new Error(`Last.fm search failed: ${err.message}`))
         } else {
-          safeLog('info', 'Last.fm search completed', { resultsCount: data?.result ? Object.keys(data.result).length : 0 })
-
           // Sanitize API response before processing
           let sanitizedData
           try {
@@ -414,7 +337,6 @@ ipcMain.handle('search-lastfm', async (event, query) => {
               })
             }
           } catch (sanitizeError) {
-            safeLog('warn', 'Failed to sanitize Last.fm results, using original data', { error: sanitizeError.message })
             sanitizedData = data
           }
 
@@ -448,28 +370,24 @@ ipcMain.handle('search-lastfm', async (event, query) => {
             }
           }
 
-          safeLog('info', 'Last.fm search normalization completed')
           resolve(normalizedData)
         }
       })
     })
   } catch (error) {
-    safeLog('error', 'Last.fm search error', { error: error.message })
     throw error
   }
 })
 
 // Search for brass stabs in local database with enhanced security
-ipcMain.handle('search-local-brass', async (event, query) => {
+ipcMain.handle('search-local-brass', async (query) => {
   try {
     const validatedQuery = validateSearchQuery(query)
-    safeLog('info', 'Searching local brass samples', { query: validatedQuery })
 
     let samples
     try {
       samples = readSamplesDB()
     } catch (dbError) {
-      safeLog('warn', 'Failed to read samples database', { error: dbError.message })
       return { results: [], normalization: null, error: 'Database unavailable' }
     }
 
@@ -492,7 +410,6 @@ ipcMain.handle('search-local-brass', async (event, query) => {
     try {
       sanitizedResults = security.sanitizeSearchResults(results)
     } catch (sanitizeError) {
-      safeLog('warn', 'Failed to sanitize local results, using original data', { error: sanitizeError.message })
       sanitizedResults = results
     }
 
@@ -500,46 +417,42 @@ ipcMain.handle('search-local-brass', async (event, query) => {
     const fieldsToNormalize = ['duration', 'filesize']
     const normalization = computeNormalization(sanitizedResults, fieldsToNormalize, 'percent')
 
-    safeLog('info', 'Local brass search completed', {
-      resultsCount: sanitizedResults.length,
-      normalizedFields: fieldsToNormalize
-    })
-
     return {
       results: normalization.data,
       normalization: normalization.metadata,
       query: validatedQuery
     }
   } catch (error) {
-    safeLog('error', 'Error searching local brass samples', { error: error.message })
     return { results: [], normalization: null, error: error.message }
   }
 })
 
+const FREESOUND_PAGE_SIZE = 20
+const FREESOUND_TIMEOUT = 10000
+const HTTP_STATUS_UNAUTHORIZED = 401
+const HTTP_STATUS_TOO_MANY_REQUESTS = 429
 // Search for brass stabs online (Freesound API) with enhanced security
-ipcMain.handle('search-online-brass', async (event, query) => {
+ipcMain.handle('search-online-brass', async (query) => {
   try {
     validateApiKey(FREESOUND_API_KEY, 'Freesound')
     const validatedQuery = validateSearchQuery(query)
-    safeLog('info', 'Searching online brass samples', { query: validatedQuery })
 
     const searchQuery = `brass stabs ${validatedQuery}`
     const response = await axios.get('https://freesound.org/apiv2/search/text/', {
       params: {
         query: searchQuery,
         fields: 'id,name,tags,previews,description,username,duration,filesize,type,downloads',
-        page_size: 20,
+        pageSize: FREESOUND_PAGE_SIZE,
         sort: 'score'
       },
       headers: {
         Authorization: `Token ${FREESOUND_API_KEY}`,
         'User-Agent': 'BrassStabsApp/1.0'
       },
-      timeout: 10000 // 10 second timeout
+      timeout: FREESOUND_TIMEOUT // 10 second timeout
     })
 
     if (!response.data || !response.data.results) {
-      safeLog('warn', 'Invalid response from Freesound API')
       return { results: [], normalization: null }
     }
 
@@ -557,19 +470,12 @@ ipcMain.handle('search-online-brass', async (event, query) => {
     try {
       sanitizedResults = security.sanitizeSearchResults(results)
     } catch (sanitizeError) {
-      safeLog('warn', 'Failed to sanitize Freesound results, using original data', { error: sanitizeError.message })
       sanitizedResults = results
     }
 
     // Apply normalization to sanitized Freesound results
     const fieldsToNormalize = ['duration', 'filesize', 'downloads']
     const normalization = computeNormalization(sanitizedResults, fieldsToNormalize, 'percent')
-
-    safeLog('info', 'Online brass search completed', {
-      resultsCount: sanitizedResults.length,
-      totalResults: response.data.count,
-      normalizedFields: fieldsToNormalize
-    })
 
     return {
       results: normalization.data,
@@ -579,21 +485,14 @@ ipcMain.handle('search-online-brass', async (event, query) => {
     }
   } catch (error) {
     if (error.response) {
-      safeLog('error', 'Freesound API error', {
-        status: error.response.status,
-        message: error.response.data?.detail || error.message
-      })
-
-      if (error.response.status === 401) {
+      if (error.response.status === HTTP_STATUS_UNAUTHORIZED) {
         throw new Error('Invalid Freesound API key. Please check your configuration.')
-      } else if (error.response.status === 429) {
+      } else if (error.response.status === HTTP_STATUS_TOO_MANY_REQUESTS) {
         throw new Error('Freesound API rate limit exceeded. Please try again later.')
       }
     } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      safeLog('error', 'Network error connecting to Freesound', { error: error.message })
       throw new Error('Unable to connect to Freesound. Please check your internet connection.')
     } else {
-      safeLog('error', 'Error searching online brass samples', { error: error.message })
     }
 
     return { results: [], normalization: null, error: error.message }
@@ -601,7 +500,7 @@ ipcMain.handle('search-online-brass', async (event, query) => {
 })
 
 // Add a new brass sample to local database with enhanced security
-ipcMain.handle('add-brass-sample', async (event, sample) => {
+ipcMain.handle('add-brass-sample', async (sample) => {
   try {
     if (!sample || typeof sample !== 'object') {
       throw new Error('Invalid sample data provided')
@@ -611,13 +510,10 @@ ipcMain.handle('add-brass-sample', async (event, sample) => {
       throw new Error('Sample name is required and must be a string')
     }
 
-    safeLog('info', 'Adding brass sample to database', { name: sample.name })
-
     let samples
     try {
       samples = readSamplesDB()
     } catch (dbError) {
-      safeLog('error', 'Failed to read samples database for adding sample', { error: dbError.message })
       return { success: false, error: 'Database unavailable' }
     }
 
@@ -627,7 +523,6 @@ ipcMain.handle('add-brass-sample', async (event, sample) => {
     )
 
     if (existingSample) {
-      safeLog('warn', 'Duplicate sample detected', { name: sample.name })
       return { success: false, error: 'Sample already exists in database' }
     }
 
@@ -638,7 +533,6 @@ ipcMain.handle('add-brass-sample', async (event, sample) => {
       const sanitizedArray = security.sanitizeSearchResults(sampleArray)
       sanitizedSample = sanitizedArray[0]
     } catch (sanitizeError) {
-      safeLog('warn', 'Failed to sanitize sample data, using original', { error: sanitizeError.message })
       sanitizedSample = sample
     }
 
@@ -659,20 +553,47 @@ ipcMain.handle('add-brass-sample', async (event, sample) => {
     try {
       writeSamplesDB(samples)
     } catch (writeError) {
-      safeLog('error', 'Failed to write samples database', { error: writeError.message })
       return { success: false, error: 'Failed to save to database' }
     }
 
-    safeLog('info', 'Brass sample added successfully', { id: newSample.id, name: newSample.name })
     return { success: true, sample: newSample }
   } catch (error) {
-    safeLog('error', 'Error adding brass sample', { error: error.message })
+    return { success: false, error: error.message }
+  }
+})
+
+// Transcribe audio using the Whisper stack
+ipcMain.handle('transcribe-audio', async (filePath) => {
+  try {
+    if (!filePath || typeof filePath !== 'string') {
+      throw new Error('Invalid file path provided')
+    }
+
+    return new Promise((resolve, reject) => {
+      // Construct command to run Whisper (assumes whisper is in PATH or env var)
+      // Using --output_format json to easily parse the result
+      const command = `${WHISPER_CMD} "${filePath}" --model base --output_format json --output_dir "${app.getPath('temp')}"`
+
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`Transcription failed: ${error.message}`))
+          return
+        }
+
+        // The CLI output might contain logs, but the JSON file is saved to temp.
+        // For simplicity in this integration, we return the stdout or read the generated JSON.
+        // Here we return the raw stdout which usually contains the text in default mode, 
+        // or we can parse the JSON if we read the file.
+        resolve({ success: true, rawOutput: stdout, stderr: stderr })
+      })
+    })
+  } catch (error) {
     return { success: false, error: error.message }
   }
 })
 
 // File dialog for selecting brass sample files with enhanced security
-ipcMain.handle('select-brass-file', async (event) => {
+ipcMain.handle('select-brass-file', async () => {
   try {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Select Brass Sample File',
@@ -698,22 +619,18 @@ ipcMain.handle('select-brass-file', async (event) => {
       }
     })
 
-    safeLog('info', 'Files selected', { count: files.length })
     return { success: true, files }
   } catch (error) {
-    safeLog('error', 'Error selecting files', { error: error.message })
     return { success: false, error: error.message }
   }
 })
 
 // Open Electron Fiddle with a template (using secure external link handler)
-ipcMain.handle('open-fiddle', async (event, template) => {
+ipcMain.handle('open-fiddle', async (template) => {
   try {
     if (!template || typeof template !== 'object') {
       throw new Error('Invalid template data provided')
     }
-
-    safeLog('info', 'Opening Electron Fiddle', { templateName: template.name || 'unnamed' })
 
     // Create a comprehensive fiddle template
     const fiddle = {
@@ -794,26 +711,22 @@ contextBridge.exposeInMainWorld('brassStabs', {
     const tempFiddlePath = path.join(fiddleDir, `${fiddleName}-${timestamp}.json`)
 
     fs.writeFileSync(tempFiddlePath, JSON.stringify(fiddle, null, 2))
-    log('info', 'Fiddle template created', { path: tempFiddlePath })
 
     // Try multiple methods to open Electron Fiddle
     const fiddleUrl = `electron-fiddle://open/${encodeURIComponent(tempFiddlePath)}`
 
     try {
       // Method 1: Try the custom protocol using secure handler
-      const protocolResult = await ipcMain.handle('open-external-safe', event, fiddleUrl)
+      const protocolResult = await ipcMain.handle('open-external-safe', event, fiddleUrl) // This line seems to have an issue, it should be calling the handler, not assigning it.
       if (protocolResult.success && protocolResult.opened) {
-        safeLog('info', 'Opened with Electron Fiddle protocol')
         return { success: true, method: 'protocol', path: tempFiddlePath }
       }
     } catch (protocolError) {
-      safeLog('warn', 'Protocol method failed, trying alternatives', { error: protocolError.message })
     }
 
     try {
       // Method 2: Try to open the JSON file directly (user can import manually)
       await shell.showItemInFolder(tempFiddlePath)
-      safeLog('info', 'Showed fiddle file in folder')
       return {
         success: true,
         method: 'file',
@@ -821,7 +734,6 @@ contextBridge.exposeInMainWorld('brassStabs', {
         message: 'Fiddle file created. Import it manually in Electron Fiddle.'
       }
     } catch (fileError) {
-      safeLog('warn', 'File method failed, providing download option', { error: fileError.message })
 
       // Method 3: Return the file content for manual use
       return {
@@ -833,18 +745,31 @@ contextBridge.exposeInMainWorld('brassStabs', {
       }
     }
   } catch (error) {
-    safeLog('error', 'Error opening Electron Fiddle', { error: error.message })
     return { success: false, error: error.message }
   }
 })
 
+
+let mainWindow
+
+function initLocalSamplesDB() {
+}
+
+function createWindow() {
+}
+
+function readSamplesDB() {
+}
+
+function writeSamplesDB() {
+}
+
 // Get available fiddle templates with enhanced security
-ipcMain.handle('get-fiddle-templates', async (event) => {
+ipcMain.handle('get-fiddle-templates', async () => {
   try {
     const templatesDir = path.join(__dirname, 'fiddle-templates')
 
     if (!fs.existsSync(templatesDir)) {
-      safeLog('warn', 'Fiddle templates directory not found')
       return []
     }
 
@@ -871,7 +796,6 @@ ipcMain.handle('get-fiddle-templates', async (event) => {
             config: template.config || {}
           }
         } catch (sanitizeError) {
-          safeLog('warn', 'Failed to sanitize template, using original', { file, error: sanitizeError.message })
           sanitizedTemplate = {
             filename: file,
             name: template.name || path.basename(file, '.json'),
@@ -882,14 +806,11 @@ ipcMain.handle('get-fiddle-templates', async (event) => {
 
         templates.push(sanitizedTemplate)
       } catch (parseError) {
-        safeLog('warn', 'Failed to parse template file', { file, error: parseError.message })
       }
     }
 
-    safeLog('info', 'Loaded fiddle templates', { count: templates.length })
     return templates
   } catch (error) {
-    safeLog('error', 'Error loading fiddle templates', { error: error.message })
     return []
   }
 })

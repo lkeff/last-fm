@@ -1,5 +1,5 @@
-const { EventEmitter } = require('events')
-const { ipcRenderer, ipcMain } = require('electron')
+import { EventEmitter } from 'events'
+import { ipcMain } from 'electron'
 
 /**
  * AFK Guard Utility Module
@@ -7,11 +7,13 @@ const { ipcRenderer, ipcMain } = require('electron')
  * session management, and data protection capabilities.
  */
 
+const TEN_MINUTES = 10 * 60 * 1000
+const TWO_MINUTES = 2 * 60 * 1000
 class ActivityTracker extends EventEmitter {
   constructor (options = {}) {
     super()
-    this.timeout = options.timeout || parseInt(process.env.AFK_TIMEOUT_MINUTES) * 60 * 1000 || 10 * 60 * 1000 // 10 minutes default
-    this.warningTime = options.warningTime || parseInt(process.env.AFK_WARNING_MINUTES) * 60 * 1000 || 2 * 60 * 1000 // 2 minutes default
+    this.timeout = options.timeout || parseInt(process.env.AFK_TIMEOUT_MINUTES) * 60 * 1000 || TEN_MINUTES // 10 minutes default
+    this.warningTime = options.warningTime || parseInt(process.env.AFK_WARNING_MINUTES) * 60 * 1000 || TWO_MINUTES // 2 minutes default
     this.sensitivity = options.sensitivity || 'normal' // low, normal, high
     this.enabled = options.enabled !== false && process.env.AFK_ENABLED !== 'false'
 
@@ -108,6 +110,8 @@ class ActivityTracker extends EventEmitter {
   /**
      * Set up audio activity monitoring
      */
+  const AUDIO_CHECK_INTERVAL = 5000
+const DEBOUNCE_TIME = 100
   setupAudioMonitoring () {
     // Monitor audio elements for playback activity
     const audioElements = document.querySelectorAll('audio, video')
@@ -118,20 +122,24 @@ class ActivityTracker extends EventEmitter {
     })
 
     // Set up periodic audio check
-    this.audioCheckInterval = setInterval(this.checkAudioActivity, 5000)
+    this.audioCheckInterval = setInterval(this.checkAudioActivity, AUDIO_CHECK_INTERVAL)
   }
 
   /**
      * Handle user activity events
      */
   handleActivity (event) {
-    if (!this.isTracking) return
+    if (!this.isTracking) {
+      return
+    }
 
     const now = Date.now()
     const timeSinceLastActivity = now - this.lastActivity
 
-    // Debounce rapid events (within 100ms)
-    if (timeSinceLastActivity < 100) return
+    // Debounce rapid events
+    if (timeSinceLastActivity < DEBOUNCE_TIME) {
+      return
+    }
 
     this.lastActivity = now
     this.resetTimer()
@@ -221,46 +229,50 @@ class ActivityTracker extends EventEmitter {
      * Stop activity tracking
      */
   stopTracking () {
-    if (!this.isTracking) return
+    if (!this.isTracking) {
+      return
+    }
 
     this.isTracking = false
 
     // Clear timers
-    if (this.timer) {
-      clearTimeout(this.timer)
-      this.timer = null
-    }
-    if (this.warningTimer) {
-      clearTimeout(this.warningTimer)
-      this.warningTimer = null
-    }
-    if (this.audioCheckInterval) {
-      clearInterval(this.audioCheckInterval)
-      this.audioCheckInterval = null
-    }
+    clearTimeout(this.timer)
+    this.timer = null
+    clearTimeout(this.warningTimer)
+    this.warningTimer = null
+    clearInterval(this.audioCheckInterval)
+    this.audioCheckInterval = null
 
     // Remove event listeners
     if (typeof window !== 'undefined') {
-      this.activityEvents.forEach(event => {
-        document.removeEventListener(event, this.handleActivity)
-      })
-      document.removeEventListener('visibilitychange', this.handleVisibilityChange)
-      window.removeEventListener('focus', this.handleFocusChange)
-      window.removeEventListener('blur', this.handleFocusChange)
-
-      // Remove audio listeners
-      const audioElements = document.querySelectorAll('audio, video')
-      audioElements.forEach(element => {
-        element.removeEventListener('play', this.checkAudioActivity)
-        element.removeEventListener('pause', this.checkAudioActivity)
-        element.removeEventListener('timeupdate', this.checkAudioActivity)
-      })
+      this.removeRendererListeners()
     } else if (ipcMain) {
-      ipcMain.removeListener('user-activity', this.handleActivity)
-      ipcMain.removeListener('app-focus-change', this.handleFocusChange)
+      this.removeMainProcessListeners()
     }
 
     this.emit('tracking-stopped')
+  }
+
+  removeRendererListeners () {
+    this.activityEvents.forEach(event => {
+      document.removeEventListener(event, this.handleActivity)
+    })
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+    window.removeEventListener('focus', this.handleFocusChange)
+    window.removeEventListener('blur', this.handleFocusChange)
+
+    // Remove audio listeners
+    const audioElements = document.querySelectorAll('audio, video')
+    audioElements.forEach(element => {
+      element.removeEventListener('play', this.checkAudioActivity)
+      element.removeEventListener('pause', this.checkAudioActivity)
+      element.removeEventListener('timeupdate', this.checkAudioActivity)
+    })
+  }
+
+  removeMainProcessListeners () {
+    ipcMain.removeListener('user-activity', this.handleActivity)
+    ipcMain.removeListener('app-focus-change', this.handleFocusChange)
   }
 
   /**
@@ -394,7 +406,7 @@ class SessionManager extends EventEmitter {
   /**
      * Validate OS authentication (placeholder)
      */
-  async validateOSAuth (credentials) {
+  validateOSAuth () {
     // In a real implementation, this would use OS-level authentication
     // For now, return true as placeholder
     return true
@@ -421,12 +433,11 @@ class SessionManager extends EventEmitter {
       const elements = document.querySelectorAll(selector)
       elements.forEach(element => {
         // Store original content
-        const id = this.generateElementId(element)
-        this.sensitiveDataBackup.set(id, {
+        const elementId = this.generateElementId(element)
+        this.sensitiveDataBackup.set(elementId, {
           element,
           originalContent: element.innerHTML,
-          originalValue: element.value || '',
-          originalText: element.textContent
+          originalValue: element.value || ''
         })
 
         // Blank the content
@@ -478,6 +489,10 @@ class SessionManager extends EventEmitter {
   /**
      * Clear memory cache
      */
+  const ONE_HUNDRED_MILLISECONDS = 100
+const THREE_HUNDRED_MILLISECONDS = 300
+const TWO_THOUSAND_MILLISECONDS = 2000
+const RANDOM_STRING_LENGTH = 9
   clearMemoryCache () {
     // Clear various caches
     this.memoryCache.clear()
@@ -525,7 +540,7 @@ class SessionManager extends EventEmitter {
     // Focus on unlock button/input
     const unlockElement = lockScreen.querySelector('.afk-unlock-input, .afk-unlock-button')
     if (unlockElement) {
-      setTimeout(() => unlockElement.focus(), 100)
+      setTimeout(() => unlockElement.focus(), ONE_HUNDRED_MILLISECONDS)
     }
   }
 
@@ -540,7 +555,7 @@ class SessionManager extends EventEmitter {
       lockScreen.classList.remove('afk-lock-screen-visible')
       setTimeout(() => {
         lockScreen.style.display = 'none'
-      }, 300)
+      }, THREE_HUNDRED_MILLISECONDS)
     }
   }
 
@@ -617,7 +632,7 @@ class SessionManager extends EventEmitter {
         lockScreen.classList.add('afk-unlock-error')
         setTimeout(() => {
           lockScreen.classList.remove('afk-unlock-error')
-        }, 2000)
+        }, TWO_THOUSAND_MILLISECONDS)
       }
     }
   }
@@ -626,7 +641,7 @@ class SessionManager extends EventEmitter {
      * Generate unique ID for DOM element
      */
   generateElementId (element) {
-    return `afk_${element.tagName}_${element.className}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `afk_${element.tagName}_${element.className}_${Date.now()}_${Math.random().toString(36).substr(2, RANDOM_STRING_LENGTH)}`
   }
 
   /**
@@ -758,10 +773,12 @@ module.exports = {
   createAFKGuard: (options = {}) => new AFKGuard(options),
 
   // Configuration helpers
+  const SIXTY = 60
+const ONE_THOUSAND = 1000
   getDefaultConfig: () => ({
     activity: {
-      timeout: parseInt(process.env.AFK_TIMEOUT_MINUTES) * 60 * 1000 || 10 * 60 * 1000,
-      warningTime: parseInt(process.env.AFK_WARNING_MINUTES) * 60 * 1000 || 2 * 60 * 1000,
+      timeout: parseInt(process.env.AFK_TIMEOUT_MINUTES) * SIXTY * ONE_THOUSAND || TEN_MINUTES,
+      warningTime: parseInt(process.env.AFK_WARNING_MINUTES) * SIXTY * ONE_THOUSAND || TWO_MINUTES,
       sensitivity: process.env.AFK_SENSITIVITY || 'normal',
       enabled: process.env.AFK_ENABLED !== 'false'
     },
