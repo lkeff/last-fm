@@ -1,7 +1,6 @@
 const electron = require('electron')
-const { app, BrowserWindow, ipcMain, dialog, shell, session, powerMonitor } = electron
+const { app, BrowserWindow, ipcMain, dialog, shell, powerMonitor } = electron
 const path = require('path')
-const crypto = require('crypto')
 const LastFM = require('./index.js')
 const axios = require('axios')
 const fs = require('fs')
@@ -145,15 +144,30 @@ function computeNormalization (dataset, fields, mode = 'unit') {
   }
 }
 
+let mainWindow = null
 let lastfm
 let afkGuard
 let encryptionKey = null
-let localSamplesPath
-let encryptedSamplesPath
+
+// Simple in-memory samples database
+let localSamplesDB = []
+
+function initLocalSamplesDB () {
+  localSamplesDB = []
+}
+
+function readSamplesDB () {
+  return localSamplesDB
+}
+
+function writeSamplesDB (samples) {
+  localSamplesDB = samples
+}
 
 function initializeApp () {
-  localSamplesPath = path.join(app.getPath('userData'), 'brass_samples.json')
-  encryptedSamplesPath = path.join(app.getPath('userData'), 'brass_samples.enc')
+  // Paths for potential future use (commented out to avoid unused variable warnings)
+  // const localSamplesPath = path.join(app.getPath('userData'), 'brass_samples.json')
+  // const encryptedSamplesPath = path.join(app.getPath('userData'), 'brass_samples.enc')
 
   try {
     validateApiKey(API_KEY, 'Last.fm')
@@ -191,18 +205,6 @@ function initializeApp () {
 
   initLocalSamplesDB()
 }
-
-// Create window when Electron is ready
-app.whenReady().then(() => {
-  initializeApp()
-  setupSecurityHandlers()
-  createWindow()
-
-  app.on('activate', () => {
-    // On macOS, recreate window when dock icon is clicked and no windows are open
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
 
 // Set up security-related IPC handlers
 function setupSecurityHandlers () {
@@ -273,14 +275,14 @@ function setupSecurityHandlers () {
   })
 
   // AFK Guard handlers
-  ipcMain.handle('user-activity', async (event) => {
+  ipcMain.handle('user-activity', async (_event) => {
     if (afkGuard && afkGuard.activityTracker) {
       afkGuard.activityTracker.handleActivity({ type: 'renderer-reported' })
     }
     return { success: true }
   })
 
-  ipcMain.handle('afk-lock', async (event) => {
+  ipcMain.handle('afk-lock', async (_event) => {
     if (afkGuard && afkGuard.sessionManager) {
       afkGuard.sessionManager.lockSession()
       return { success: true, locked: true }
@@ -296,7 +298,7 @@ function setupSecurityHandlers () {
     return { success: false, error: 'AFK Guard not available' }
   })
 
-  ipcMain.handle('afk-status', async (event) => {
+  ipcMain.handle('afk-status', async (_event) => {
     if (afkGuard) {
       return { success: true, status: afkGuard.getStatus() }
     }
@@ -455,6 +457,32 @@ ipcMain.handle('search-lastfm', async (event, query) => {
     })
   } catch (error) {
     safeLog('error', 'Last.fm search error', { error: error.message })
+    throw error
+  }
+})
+
+ipcMain.handle('get-artist-info', async (event, artistName) => {
+  try {
+    if (!lastfm) {
+      throw new Error('Last.fm client not initialized. Please check your API key configuration.')
+    }
+
+    const validatedArtistName = validateSearchQuery(artistName)
+    safeLog('info', 'Getting artist info from Last.fm', { artistName: validatedArtistName })
+
+    return new Promise((resolve, reject) => {
+      lastfm.artist.getInfo({ artist: validatedArtistName }, (err, data) => {
+        if (err) {
+          safeLog('error', 'Last.fm getArtistInfo failed', { error: err.message })
+          reject(new Error(`Last.fm getArtistInfo failed: ${err.message}`))
+        } else {
+          safeLog('info', 'Last.fm getArtistInfo completed')
+          resolve(data)
+        }
+      })
+    })
+  } catch (error) {
+    safeLog('error', 'Last.fm getArtistInfo error', { error: error.message })
     throw error
   }
 })
@@ -672,7 +700,7 @@ ipcMain.handle('add-brass-sample', async (event, sample) => {
 })
 
 // File dialog for selecting brass sample files with enhanced security
-ipcMain.handle('select-brass-file', async (event) => {
+ipcMain.handle('select-brass-file', async (_event) => {
   try {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Select Brass Sample File',
@@ -732,7 +760,7 @@ function createWindow() {
       contextIsolation: false
     }
   });
-  
+
   win.loadFile('index.html');
 }
 
@@ -839,7 +867,7 @@ contextBridge.exposeInMainWorld('brassStabs', {
 })
 
 // Get available fiddle templates with enhanced security
-ipcMain.handle('get-fiddle-templates', async (event) => {
+ipcMain.handle('get-fiddle-templates', async (_event) => {
   try {
     const templatesDir = path.join(__dirname, 'fiddle-templates')
 
@@ -892,4 +920,42 @@ ipcMain.handle('get-fiddle-templates', async (event) => {
     safeLog('error', 'Error loading fiddle templates', { error: error.message })
     return []
   }
+})
+
+// Main window creation function
+function createWindow () {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  })
+
+  // Load the main app
+  mainWindow.loadFile('index.html')
+
+  // Open DevTools in development
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools()
+  }
+
+  safeLog('info', 'Main window created successfully.')
+
+  return mainWindow
+}
+
+// Create window when Electron is ready
+app.whenReady().then(() => {
+  initializeApp()
+  setupSecurityHandlers()
+  createWindow()
+
+  // On macOS it's common to re-create a window when the dock icon is clicked
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
+  })
 })

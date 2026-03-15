@@ -257,7 +257,7 @@ const StatisticalUtils = {
     const outlierIndices = []
 
     switch (method) {
-      case NORMALIZATION_CONFIG.OUTLIER_METHODS.IQR:
+      case NORMALIZATION_CONFIG.OUTLIER_METHODS.IQR: {
         const lowerBound = stats.q1 - NORMALIZATION_CONFIG.THRESHOLDS.IQR_MULTIPLIER * stats.iqr
         const upperBound = stats.q3 + NORMALIZATION_CONFIG.THRESHOLDS.IQR_MULTIPLIER * stats.iqr
 
@@ -268,8 +268,9 @@ const StatisticalUtils = {
           }
         })
         break
+      }
 
-      case NORMALIZATION_CONFIG.OUTLIER_METHODS.ZSCORE:
+      case NORMALIZATION_CONFIG.OUTLIER_METHODS.ZSCORE: {
         numericValues.forEach((value, index) => {
           const zscore = Math.abs((value - stats.mean) / stats.std)
           if (zscore > NORMALIZATION_CONFIG.THRESHOLDS.ZSCORE_OUTLIER) {
@@ -278,8 +279,9 @@ const StatisticalUtils = {
           }
         })
         break
+      }
 
-      case NORMALIZATION_CONFIG.OUTLIER_METHODS.MODIFIED_ZSCORE:
+      case NORMALIZATION_CONFIG.OUTLIER_METHODS.MODIFIED_ZSCORE: {
         const medianAbsoluteDeviation = StatisticalUtils.calculateMAD(numericValues, stats.median)
         numericValues.forEach((value, index) => {
           const modifiedZScore = 0.6745 * (value - stats.median) / medianAbsoluteDeviation
@@ -289,6 +291,7 @@ const StatisticalUtils = {
           }
         })
         break
+      }
 
       default:
         // No outlier detection
@@ -408,8 +411,7 @@ const BatchProcessor = {
     const {
       outlierDetection = NORMALIZATION_CONFIG.OUTLIER_METHODS.NONE,
       preserveOriginal = true,
-      roundDecimals = 2,
-      handleMissing = 'default'
+      roundDecimals = 2
     } = options
 
     if (!Array.isArray(dataset) || dataset.length === 0) {
@@ -609,7 +611,7 @@ const EdgeCaseHandlers = {
    * @param {string} mode - Normalization mode
    * @returns {Object|null} Special handling result or null
    */
-  handleSingleValue: (values, field, mode) => {
+  handleSingleValue: (values, _field, _mode) => {
     const numericValues = DataTypeUtils.filterNumeric(values)
 
     if (numericValues.length === 1) {
@@ -630,7 +632,7 @@ const EdgeCaseHandlers = {
    * @param {string} field - Field name
    * @returns {Object|null} Special handling result or null
    */
-  handleUniformValues: (values, field) => {
+  handleUniformValues: (values, _field) => {
     const numericValues = DataTypeUtils.filterNumeric(values)
 
     if (numericValues.length > 1) {

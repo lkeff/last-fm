@@ -50,11 +50,13 @@
     "audio-production"
   ],
   "license": "MIT",
-  "main": "main.js",
+  "main": "index.js",
   "dependencies": {
+    "@tensorflow/tfjs-node": "3.18.0",
     "axios": "^1.4.0",
     "dompurify": "^3.2.7",
     "dotenv": "^16.3.1",
+    "grpc": "1.24.11",
     "helmet": "^7.0.0",
     "keytar": "^7.9.0",
     "run-parallel": "^1.1.10",

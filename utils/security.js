@@ -101,11 +101,11 @@ function sanitizeHtml (htmlString) {
 
   // Remove dangerous tags completely
   SECURITY_CONFIG.HTML_SANITIZATION.DANGEROUS_TAGS.forEach(tag => {
-    const regex = new RegExp(`<${tag}[^>]*>.*?<\/${tag}>`, 'gis')
+    const regex = new RegExp(`<${tag}[^>]*>.*?</${tag}>`, 'gis')
     sanitized = sanitized.replace(regex, '')
 
     // Also remove self-closing versions
-    const selfClosingRegex = new RegExp(`<${tag}[^>]*\/?>`, 'gis')
+    const selfClosingRegex = new RegExp(`<${tag}[^>]*/?>`, 'gis')
     sanitized = sanitized.replace(selfClosingRegex, '')
   })
 
@@ -288,7 +288,7 @@ function detectSuspiciousUrl (url) {
     }
 
     // Check for homograph attacks (mixed scripts)
-    const hasNonAscii = /[^\x00-\x7F]/.test(hostname)
+    const hasNonAscii = /[^\x20-\x7E]/.test(hostname)
     if (hasNonAscii) {
       result.suspicious = true
       result.reasons.push('Non-ASCII characters in domain (potential homograph attack)')
@@ -481,7 +481,7 @@ function encryptData (data, key) {
 
   try {
     const iv = crypto.randomBytes(SECURITY_CONFIG.ENCRYPTION.IV_LENGTH)
-    const cipher = crypto.createCipher(SECURITY_CONFIG.ENCRYPTION.ALGORITHM, key, { iv })
+    const cipher = crypto.createCipheriv(SECURITY_CONFIG.ENCRYPTION.ALGORITHM, key, iv)
 
     let encrypted = cipher.update(data, 'utf8')
     encrypted = Buffer.concat([encrypted, cipher.final()])
@@ -526,7 +526,7 @@ function decryptData (encryptedData, key) {
   }
 
   try {
-    const decipher = crypto.createDecipher(SECURITY_CONFIG.ENCRYPTION.ALGORITHM, key, { iv })
+    const decipher = crypto.createDecipheriv(SECURITY_CONFIG.ENCRYPTION.ALGORITHM, key, iv)
     decipher.setAuthTag(tag)
 
     let decrypted = decipher.update(encrypted)

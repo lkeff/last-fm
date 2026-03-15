@@ -1,0 +1,10 @@
+services:
+  electron-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.electron
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    privileged: true # May be needed for some X11 setups, consider security implications

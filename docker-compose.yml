@@ -1,8 +1,34 @@
 services:
-  lastfm:
-    image: lastfm
+  lastfm-bot:
     build:
       context: .
-      dockerfile: ./Dockerfile
-    ports:
-      - 4000:4000
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - LASTFM_API_KEY=${LASTFM_API_KEY}
+    command: node bot.js
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./.env:/app/.env:ro
+    restart: "no"
+    networks:
+      - lastfm-network
+
+  lastfm-top-music:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - LASTFM_API_KEY=${LASTFM_API_KEY}
+    command: node get_top_music.js
+    volumes:
+      - ./.env:/app/.env:ro
+    restart: "no"
+    networks:
+      - lastfm-network
+
+networks:
+  lastfm-network:
+    driver: bridge

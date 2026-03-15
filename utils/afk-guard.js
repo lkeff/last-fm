@@ -1,5 +1,5 @@
 const { EventEmitter } = require('events')
-const { ipcRenderer, ipcMain } = require('electron')
+const { ipcMain } = require('electron')
 
 /**
  * AFK Guard Utility Module
@@ -394,7 +394,7 @@ class SessionManager extends EventEmitter {
   /**
      * Validate OS authentication (placeholder)
      */
-  async validateOSAuth (credentials) {
+  async validateOSAuth (_credentials) {
     // In a real implementation, this would use OS-level authentication
     // For now, return true as placeholder
     return true
@@ -425,8 +425,7 @@ class SessionManager extends EventEmitter {
         this.sensitiveDataBackup.set(id, {
           element,
           originalContent: element.innerHTML,
-          originalValue: element.value || '',
-          originalText: element.textContent
+          originalValue: element.value || ''
         })
 
         // Blank the content
@@ -452,8 +451,8 @@ class SessionManager extends EventEmitter {
   restoreSensitiveData () {
     if (typeof window === 'undefined') return
 
-    this.sensitiveDataBackup.forEach((backup, id) => {
-      const { element, originalContent, originalValue, originalText } = backup
+    this.sensitiveDataBackup.forEach((backup, _id) => {
+      const { element, originalContent, originalValue } = backup
 
       if (element && element.parentNode) {
         if (element.tagName === 'INPUT') {
@@ -484,15 +483,17 @@ class SessionManager extends EventEmitter {
 
     // Clear browser caches if in renderer process
     if (typeof window !== 'undefined') {
-      // Clear session storage of sensitive data
-      const sensitiveKeys = []
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i)
-        if (key && (key.includes('api') || key.includes('token') || key.includes('search'))) {
-          sensitiveKeys.push(key)
+      // Clear session storage of sensitive data (use window.sessionStorage)
+      if (typeof window.sessionStorage !== 'undefined') {
+        const sensitiveKeys = []
+        for (let i = 0; i < window.sessionStorage.length; i++) {
+          const key = window.sessionStorage.key(i)
+          if (key && (key.includes('api') || key.includes('token') || key.includes('search'))) {
+            sensitiveKeys.push(key)
+          }
         }
+        sensitiveKeys.forEach(key => window.sessionStorage.removeItem(key))
       }
-      sensitiveKeys.forEach(key => sessionStorage.removeItem(key))
 
       // Clear any global cache objects
       if (window.searchCache) {
