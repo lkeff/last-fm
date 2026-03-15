@@ -1,0 +1,28 @@
+# Base image for Electron app
+FROM node:18
+
+# Install dependencies for running Electron in headless mode
+RUN apt-get update && apt-get install -y \
+    libgtk-3-0 \
+    libnss3 \
+    libasound2 \
+    libxtst6 \
+    xvfb
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application
+COPY . .
+
+# Set display for headless mode
+ENV DISPLAY=:99
+
+# Command to run the Electron app with xvfb
+CMD ["xvfb-run", "npm", "start"]

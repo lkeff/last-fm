@@ -114,6 +114,22 @@ class BrassStabsApp {
 
     // Setup activity tracking for AFK guard
     this.setupActivityTracking()
+
+    const closeArtistModalBtn = document.getElementById('close-artist-modal')
+    if (closeArtistModalBtn) {
+      closeArtistModalBtn.addEventListener('click', () => {
+        document.getElementById('artist-details-modal').classList.remove('active')
+      })
+    }
+
+    const artistModalOverlay = document.getElementById('artist-details-modal')
+    if (artistModalOverlay) {
+      artistModalOverlay.addEventListener('click', (e) => {
+        if (e.target === artistModalOverlay) {
+          artistModalOverlay.classList.remove('active')
+        }
+      })
+    }
   }
 
   setupSearchDebouncing () {
@@ -813,6 +829,7 @@ class BrassStabsApp {
                   ${normalizedMetrics}
                 </div>
                 ${secureUrl}
+                <button class="btn-secondary get-artist-info-btn" data-artist-name="${sanitizedName}">More Info</button>
               </div>
             </div>
           `
@@ -1045,8 +1062,54 @@ class BrassStabsApp {
           }
         })
       })
+
+      // Get artist info buttons
+      const artistInfoButtons = container.querySelectorAll('.get-artist-info-btn')
+      artistInfoButtons.forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          this.reportUserActivity('get-artist-info')
+          const artistName = e.target.dataset.artistName
+          this.getArtistInfo(artistName)
+        })
+      })
     } catch (error) {
       this.secureLog('error', 'Error setting up result action listeners', { error: error.message })
+    }
+  }
+
+  async getArtistInfo (artistName) {
+    try {
+      this.setLoadingState('artist-info', true)
+      const result = await window.api.getArtistInfo(artistName)
+
+      if (result.success) {
+        const artist = result.data.artist
+        const modal = document.getElementById('artist-details-modal')
+        const modalTitle = document.getElementById('artist-name-modal')
+        const modalContent = document.getElementById('artist-details-content')
+
+        modalTitle.textContent = artist.name
+        modalContent.innerHTML = `
+          <div class="artist-details">
+            <p>${artist.bio.summary}</p>
+            <h4>Tags</h4>
+            <div class="tags">
+              ${artist.tags.tag.map(tag => `<span class="tag">${tag.name}</span>`).join('')}
+            </div>
+            <h4>Similar Artists</h4>
+            <div class="similar-artists">
+              ${artist.similar.artist.map(sim => `<span>${sim.name}</span>`).join(', ')}
+            </div>
+          </div>
+        `
+        modal.classList.add('active')
+      } else {
+        this.showError('Failed to get artist info', result.error)
+      }
+    } catch (error) {
+      this.showError('Failed to get artist info', error)
+    } finally {
+      this.setLoadingState('artist-info', false)
     }
   }
 
@@ -1096,7 +1159,7 @@ class BrassStabsApp {
       button.textContent = '⏸ Playing...'
       button.disabled = true
 
-      const audio = new Audio(url)
+      const audio = new window.Audio(url)
 
       // Set security headers and constraints
       audio.crossOrigin = 'anonymous'
@@ -1498,7 +1561,6 @@ class BrassStabsApp {
   async openFiddle (template, button = null) {
     try {
       if (button) {
-        const originalText = button.textContent
         button.textContent = 'Opening...'
         button.disabled = true
       }

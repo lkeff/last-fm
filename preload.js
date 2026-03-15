@@ -482,7 +482,6 @@ const utils = {
  */
 function createSecureApiWrapper (channel, validator = null, options = {}) {
   const {
-    requiresAuth = false,
     rateLimitKey = null,
     maxCalls = 10,
     windowMs = 60000,
@@ -535,13 +534,6 @@ function createSecureApiWrapper (channel, validator = null, options = {}) {
       }
     }
   }
-}
-
-/**
- * Legacy API wrapper for backward compatibility
- */
-function createApiWrapper (channel, validator = null) {
-  return createSecureApiWrapper(channel, validator)
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -722,6 +714,11 @@ contextBridge.exposeInMainWorld('api', {
   searchLastFm: createSecureApiWrapper('search-lastfm',
     (query) => validators.isValidSecureQuery(query),
     { rateLimitKey: 'lastfm-search', maxCalls: 30, windowMs: 60000 }
+  ),
+
+  getArtistInfo: createSecureApiWrapper('get-artist-info',
+    (artistName) => typeof artistName === 'string',
+    { rateLimitKey: 'lastfm-artist-info', maxCalls: 30, windowMs: 60000 }
   ),
 
   /**

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="app-container">
@@ -583,6 +583,24 @@
             <span class="btn-icon">🔗</span>
             Share
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Artist Details Modal -->
+    <div class="modal-overlay" id="artist-details-modal">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h2 class="modal-title" id="artist-name-modal">Artist Details</h2>
+          <button class="modal-close-btn" id="close-artist-modal" aria-label="Close modal">
+            <span class="close-icon">✕</span>
+          </button>
+        </div>
+        
+        <div class="modal-content">
+          <div id="artist-details-content">
+            <!-- Artist details will be populated here -->
+          </div>
         </div>
       </div>
     </div>
