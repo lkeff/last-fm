@@ -12,6 +12,7 @@ This module provides detailed configurations for four professional audio setups:
 | **Live Rig** | Concert/festival PA system | 20,000 capacity, L-Acoustics K2 |
 | **Orchestra** | 89-person symphony orchestra | Full sections, traditional seating |
 | **DJ Booth** | Professional club/festival DJ setup | 4x CDJ-3000, DJM-V10 |
+| **Bangla Orchestra** | 32-musician Bengali classical ensemble | 16 MIDI channels, 5 ragas, studio preset |
 
 ## Installation
 
@@ -150,6 +151,91 @@ const flow = djBooth.getSignalFlow();
 const bpmRanges = djBooth.getGenreBPMRanges();
 ```
 
+## Bangla Orchestra (32 Musicians)
+
+Professional Bengali classical ensemble spanning Rabindra Sangit, Baul Fusion, and Khayal traditions.
+
+### Section Breakdown
+
+| Section | Instruments | Musicians | MIDI Channels |
+|---------|-------------|-----------|---------------|
+| Plucked Strings | Sitar, Sarod, Tanpura, Dotara | 8 | 1, 2, 3, 6 |
+| Bowed Strings | Esraj, Sarangi | 4 | 4, 5 |
+| Winds | Bansuri, Shehnai | 4 | 7, 8 |
+| Keyboards | Harmonium | 2 | 9 |
+| Percussion | Tabla, Dhol, Khol, Pakhawaj | 8 | 10–13 |
+| Vocals | Lead + Chorus | 6 | 14 |
+| **Total** | | **32** | **1–16** |
+
+### Usage
+
+```javascript
+const { banglaOrchestra, createBanglaEnsemble } = require('./rigs');
+
+// Get configuration
+const config = banglaOrchestra.getBanglaOrchestra();
+const roster  = banglaOrchestra.generateRoster();
+const seating = banglaOrchestra.generateSeatingChart();
+const ragas   = banglaOrchestra.getAvailableRagas(); // ['yaman','bhairav','khamaj','bhairavi','bilawal']
+
+// MIDI ensemble controller
+const ctrl = createBanglaEnsemble({ virtual: true }); // or omit for Web MIDI
+await ctrl.connect();
+ctrl.initOrchestra();          // send GM2 program changes to all 16 channels
+
+// Play notes
+ctrl.noteOn(1, 60, 90);        // sitar, middle C, velocity 90
+ctrl.noteOff(1, 60);
+
+// Raga arpeggio
+ctrl.playRagaAscent('yaman', 'sitar', 60, 80, 300, 50);
+
+// Tabla pattern (Teentaal fragment)
+ctrl.playTablaPattern(['dha','dhin','dha','tin','ta','dhin','dhin','dha'], 80);
+
+// Tanpura drone
+ctrl.startDrone(60, 50);
+ctrl.stopDrone();
+
+// Apply studio preset to remastering-studio (WebSocket ws)
+ctrl.sendStudioPreset(ws);
+
+// Volume control
+ctrl.setSectionVolume('tabla', 100);
+ctrl.setAllSectionVolumes(90);
+```
+
+### Studio Preset
+
+Optimised for Indian classical instrument acoustics:
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| Normalize | -3.0 dBFS | Soft ceiling for dynamic playing |
+| Compress ratio | 2.5:1 | Gentle — preserves meend/gamak |
+| Compress attack | 15 ms | Slow to preserve pluck transients |
+| Reverb decay | 1.8 s | Concert hall |
+| Master limiter | -0.5 dBFS | Headroom for tabla peaks |
+
+### WebSocket Ensemble API (remastering-studio)
+
+```json
+// Control any ensemble method
+{ "type": "ensembleControl", "action": "playRagaAscent", "args": ["yaman","sitar",60,80,300,50] }
+{ "type": "ensembleControl", "action": "playTablaPattern", "args": [["dha","dhin","ge"],90] }
+{ "type": "ensembleControl", "action": "startDrone", "args": [60,50] }
+
+// Apply Bangla studio preset to audio processing
+{ "type": "ensemblePreset" }
+```
+
+REST endpoints at `http://localhost:4001/api/ensemble/*`:
+- `GET  /config` — full orchestra configuration
+- `GET  /roster` — 32-musician roster with MIDI channels
+- `GET  /seating` — stage coordinate map
+- `GET  /ragas`  — available raga scale names
+- `POST /preset` — apply Bangla studio preset
+
 ## Combined Functions
 
 ```javascript
@@ -175,12 +261,14 @@ const comparison = rigs.compareRigs('studio', 'live');
 
 ```
 rigs/
-├── index.js        # Main entry point
-├── studio-rig.js   # Studio configuration
-├── live-rig.js     # Live PA configuration
-├── orchestra.js    # Orchestra configuration
-├── dj-booth.js     # DJ booth configuration
-└── README.md       # This file
+├── index.js             # Main entry point
+├── studio-rig.js        # Studio configuration
+├── live-rig.js          # Live PA configuration
+├── orchestra.js         # 89-person symphony orchestra
+├── dj-booth.js          # DJ booth configuration
+├── bangla-orchestra.js  # 32-musician Bangla classical ensemble + MIDI map
+├── midi-ensemble.js     # EnsembleController — Web MIDI / virtual bus
+└── README.md            # This file
 ```
 
 ## Configuration Details

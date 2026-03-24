@@ -6,6 +6,7 @@ const http = require('http')
 const { spawn } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { banglaOrchestra, midiEnsemble } = require('../../rigs')
 
 const app = express()
 const server = http.createServer(app)
@@ -50,6 +51,22 @@ const audioConfig = {
   }
 }
 
+// Bangla Orchestra MIDI Ensemble — virtual bus for server-side note routing
+const ensembleController = new midiEnsemble.EnsembleController({
+  virtual: true,
+  orchestraConfig: banglaOrchestra.BANGLA_ORCHESTRA
+})
+ensembleController.connect().then(() => {
+  console.log('Bangla Orchestra MIDI ensemble virtual bus connected')
+}).catch(err => {
+  console.error('MIDI ensemble init error:', err.message)
+})
+
+// Relay MIDI messages from virtual bus to all connected WebSocket clients
+ensembleController.on('midiMessage', (msg) => {
+  broadcast({ type: 'midiMessage', data: msg })
+})
+
 // Create a temporary directory for audio processing
 const tempDir = path.join(__dirname, '..', 'temp')
 if (!fs.existsSync(tempDir)) {
@@ -85,6 +102,34 @@ wss.on('connection', (ws) => {
             type: 'processingParams',
             data: audioConfig.processingParams
           })
+          break
+        }
+
+        case 'ensembleControl': {
+          // Control the Bangla Orchestra ensemble via WebSocket
+          // Supported actions: initOrchestra, noteOn, noteOff, noteOnOff,
+          //   programChange, controlChange, playRagaAscent, playTablaPattern,
+          //   startDrone, stopDrone, setSectionVolume, allNotesOff
+          const { action, args = [] } = data
+          if (typeof ensembleController[action] !== 'function') {
+            ws.send(JSON.stringify({ type: 'error', message: `Unknown ensemble action: ${action}` }))
+            break
+          }
+          const result = ensembleController[action](...args)
+          ws.send(JSON.stringify({
+            type: 'ensembleAck',
+            action,
+            result: result !== undefined ? String(result) : 'ok'
+          }))
+          break
+        }
+
+        case 'ensemblePreset': {
+          // Apply the Bangla Orchestra studio preset to audio processing params
+          const preset = banglaOrchestra.getStudioPreset()
+          Object.assign(audioConfig.processingParams, preset)
+          broadcast({ type: 'processingParams', data: audioConfig.processingParams })
+          ws.send(JSON.stringify({ type: 'ensemblePresetApplied', preset }))
           break
         }
 
@@ -253,6 +298,37 @@ app.post('/api/params', (req, res) => {
   res.json({ success: true })
 })
 
+// Bangla Orchestra ensemble REST endpoints
+app.get('/api/ensemble/config', (req, res) => {
+  res.json({
+    orchestra: banglaOrchestra.getBanglaOrchestra(),
+    midiChannels: banglaOrchestra.getMidiChannels(),
+    percussionNotes: banglaOrchestra.getPercussionNotes(),
+    availableRagas: banglaOrchestra.getAvailableRagas(),
+    ensembleHookup: banglaOrchestra.getEnsembleHookup(),
+    studioPreset: banglaOrchestra.getStudioPreset()
+  })
+})
+
+app.get('/api/ensemble/roster', (req, res) => {
+  res.json(banglaOrchestra.generateRoster())
+})
+
+app.get('/api/ensemble/seating', (req, res) => {
+  res.json(banglaOrchestra.generateSeatingChart())
+})
+
+app.get('/api/ensemble/ragas', (req, res) => {
+  res.json({ ragas: banglaOrchestra.getAvailableRagas() })
+})
+
+app.post('/api/ensemble/preset', (req, res) => {
+  const preset = banglaOrchestra.getStudioPreset()
+  Object.assign(audioConfig.processingParams, preset)
+  broadcast({ type: 'processingParams', data: audioConfig.processingParams })
+  res.json({ success: true, preset })
+})
+
 // Start server
 const PORT = process.env.PORT || 4001
 server.listen(PORT, () => {
@@ -263,6 +339,15 @@ server.listen(PORT, () => {
   console.log('- Reverb')
   console.log('- Delay')
   console.log('- Mastering (limiter + stereo enhancement)')
+  console.log('\nBangla Orchestra Ensemble:')
+  console.log('- MIDI virtual bus active (16 channels)')
+  console.log('- REST: GET  /api/ensemble/config')
+  console.log('- REST: GET  /api/ensemble/roster')
+  console.log('- REST: GET  /api/ensemble/seating')
+  console.log('- REST: GET  /api/ensemble/ragas')
+  console.log('- REST: POST /api/ensemble/preset')
+  console.log('- WS: { type: "ensembleControl", action, args }')
+  console.log('- WS: { type: "ensemblePreset" }')
   console.log(`\nWebSocket server running on ws://localhost:${PORT}`)
 })
 

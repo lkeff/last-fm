@@ -14,6 +14,8 @@ const studioRig = require('./studio-rig')
 const liveRig = require('./live-rig')
 const orchestra = require('./orchestra')
 const djBooth = require('./dj-booth')
+const banglaOrchestra = require('./bangla-orchestra')
+const midiEnsemble = require('./midi-ensemble')
 
 /**
  * All available rig configurations
@@ -22,7 +24,8 @@ const RIGS = {
   studio: studioRig.STUDIO_RIG,
   live: liveRig.LIVE_RIG,
   orchestra: orchestra.ORCHESTRA,
-  djBooth: djBooth.DJ_BOOTH
+  djBooth: djBooth.DJ_BOOTH,
+  banglaOrchestra: banglaOrchestra.BANGLA_ORCHESTRA
 }
 
 /**
@@ -77,6 +80,14 @@ function getRigsSummary () {
       type: djBooth.DJ_BOOTH.type,
       channels: djBooth.getChannelCount(),
       equipmentItems: djBooth.getEquipmentList().length
+    },
+    banglaOrchestra: {
+      name: banglaOrchestra.BANGLA_ORCHESTRA.name,
+      type: banglaOrchestra.BANGLA_ORCHESTRA.type,
+      totalMusicians: banglaOrchestra.BANGLA_ORCHESTRA.totalMusicians,
+      sections: banglaOrchestra.getMusicianCount(),
+      midiChannels: banglaOrchestra.getMidiChannels(),
+      availableRagas: banglaOrchestra.getAvailableRagas()
     }
   }
 }
@@ -114,6 +125,7 @@ function searchEquipment (query) {
   searchObject(RIGS.live, '', 'live')
   searchObject(RIGS.orchestra, '', 'orchestra')
   searchObject(RIGS.djBooth, '', 'djBooth')
+  searchObject(RIGS.banglaOrchestra, '', 'banglaOrchestra')
 
   return results
 }
@@ -140,6 +152,11 @@ function getTotalIOCount () {
     djBooth: {
       mixerChannels: djBooth.DJ_BOOTH.mixer.primary.channels,
       totalInputs: djBooth.getChannelCount().totalInputs
+    },
+    banglaOrchestra: {
+      musicians: banglaOrchestra.BANGLA_ORCHESTRA.totalMusicians,
+      midiChannels: Object.keys(banglaOrchestra.BANGLA_ORCHESTRA.midiChannels).length,
+      recordingChannels: banglaOrchestra.BANGLA_ORCHESTRA.recording.totalMicChannels
     }
   }
 }
@@ -173,6 +190,16 @@ function generateManifest () {
         roster: orchestra.generateRoster(),
         seatingChart: orchestra.generateSeatingChart(),
         principals: orchestra.getPrincipals()
+      },
+      banglaOrchestra: {
+        name: banglaOrchestra.BANGLA_ORCHESTRA.name,
+        version: banglaOrchestra.BANGLA_ORCHESTRA.version,
+        musicians: banglaOrchestra.getMusicianCount(),
+        roster: banglaOrchestra.generateRoster(),
+        seatingChart: banglaOrchestra.generateSeatingChart(),
+        midiChannels: banglaOrchestra.getMidiChannels(),
+        ensembleHookup: banglaOrchestra.getEnsembleHookup(),
+        studioPreset: banglaOrchestra.getStudioPreset()
       },
       djBooth: {
         name: djBooth.DJ_BOOTH.name,
@@ -232,10 +259,17 @@ module.exports = {
   liveRig,
   orchestra,
   djBooth,
+  banglaOrchestra,
+  midiEnsemble,
 
   // Direct access to configurations
   STUDIO_RIG: studioRig.STUDIO_RIG,
   LIVE_RIG: liveRig.LIVE_RIG,
   ORCHESTRA: orchestra.ORCHESTRA,
-  DJ_BOOTH: djBooth.DJ_BOOTH
+  DJ_BOOTH: djBooth.DJ_BOOTH,
+  BANGLA_ORCHESTRA: banglaOrchestra.BANGLA_ORCHESTRA,
+
+  // MIDI ensemble factory
+  createBanglaEnsemble: midiEnsemble.createBanglaEnsemble,
+  EnsembleController: midiEnsemble.EnsembleController
 }
