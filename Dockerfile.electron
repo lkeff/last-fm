@@ -12,11 +12,14 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package.json package-lock.json ./
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy package.json
+COPY package.json ./
 
 # Install dependencies
-RUN npm install
+RUN pnpm install
 
 # Copy the rest of the application
 COPY . .
@@ -25,4 +28,4 @@ COPY . .
 ENV DISPLAY=:99
 
 # Command to run the Electron app with xvfb
-CMD ["xvfb-run", "npm", "start"]
+CMD ["xvfb-run", "pnpm", "start"]
