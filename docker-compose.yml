@@ -1,34 +1,40 @@
-services:
-  lastfm-bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      - NODE_ENV=production
-      - LASTFM_API_KEY=${LASTFM_API_KEY}
-    command: node bot.js
-    stdin_open: true
-    tty: true
-    volumes:
-      - ./.env:/app/.env:ro
-    restart: "no"
-    networks:
-      - lastfm-network
+version: '3.9'
 
-  lastfm-top-music:
+services:
+  last-fm:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: last-fm
+    image: last-fm:latest
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=production
-      - LASTFM_API_KEY=${LASTFM_API_KEY}
-    command: node get_top_music.js
+      NODE_ENV: production
     volumes:
-      - ./.env:/app/.env:ro
-    restart: "no"
+      - ./data:/app/data
+      - ./logs:/app/logs
     networks:
-      - lastfm-network
+      - app-network
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - node_modules
+        - action: rebuild
+          path: ./package.json
 
 networks:
-  lastfm-network:
+  app-network:
     driver: bridge
