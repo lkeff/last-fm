@@ -3,6 +3,48 @@ const get = require('simple-get')
 const querystring = require('querystring')
 const parallel = require('run-parallel')
 
+// Simple in-memory TTL cache for API responses
+class TTLCache {
+  constructor (defaultTtl) {
+    this._defaultTtl = defaultTtl || 5 * 60 * 1000
+    this._store = new Map()
+  }
+
+  set (key, value, ttl) {
+    const expiresAt = Date.now() + (ttl || this._defaultTtl)
+    this._store.set(key, { value, expiresAt })
+  }
+
+  get (key) {
+    const entry = this._store.get(key)
+    if (!entry) return undefined
+    if (Date.now() > entry.expiresAt) {
+      this._store.delete(key)
+      return undefined
+    }
+    return entry.value
+  }
+
+  has (key) {
+    return this.get(key) !== undefined
+  }
+
+  delete (key) {
+    this._store.delete(key)
+  }
+
+  clear () {
+    this._store.clear()
+  }
+
+  purgeExpired () {
+    const now = Date.now()
+    for (const [key, entry] of this._store) {
+      if (now > entry.expiresAt) this._store.delete(key)
+    }
+  }
+}
+
 const IMAGE_WEIGHT = {
   '': 1, // missing size is ranked last
   small: 2,
@@ -20,18 +62,36 @@ class LastFM {
     this._userAgent = opts.userAgent || 'last-fm (https://github.com/feross/last-fm)'
     this._minArtistListeners = opts.minArtistListeners || 0
     this._minTrackListeners = opts.minTrackListeners || 0
+    const cacheOpts = opts.cache
+    if (cacheOpts) {
+      const ttl = (typeof cacheOpts === 'object' && cacheOpts.ttl) ? cacheOpts.ttl : 5 * 60 * 1000
+      this._cache = new TTLCache(ttl)
+    } else {
+      this._cache = null
+    }
   }
 
   _sendRequest (params, name, cb) {
+    return this._sendRequestWithTtl(params, name, null, cb)
+  }
+
+  _sendRequestWithTtl (params, name, ttl, cb) {
     Object.assign(params, {
       api_key: this._key,
       format: 'json'
     })
 
     const urlBase = 'https://ws.audioscrobbler.com/2.0/'
+    const queryStr = querystring.stringify(params)
+    const cacheKey = name + ':' + queryStr
+
+    if (this._cache) {
+      const cached = this._cache.get(cacheKey)
+      if (cached !== undefined) return cb(null, cached)
+    }
 
     const opts = {
-      url: urlBase + '?' + querystring.stringify(params),
+      url: urlBase + '?' + queryStr,
       headers: {
         'User-Agent': this._userAgent
       },
@@ -39,13 +99,14 @@ class LastFM {
       json: true
     }
 
-    get.concat(opts, onResponse)
-
-    function onResponse (err, res, data) {
+    const self = this
+    get.concat(opts, function onResponse (err, res, data) {
       if (err) return cb(err)
       if (data.error) return cb(new Error(data.message))
-      cb(null, data[name])
-    }
+      const result = data[name]
+      if (self._cache) self._cache.set(cacheKey, result, ttl)
+      cb(null, result)
+    })
   }
 
   /**
@@ -624,6 +685,261 @@ class LastFM {
         meta: this._parseMeta(data, opts),
         result: this._parseTracks(data.trackmatches.track)
       })
+    })
+  }
+
+  /**
+   * USER API
+   */
+
+  userInfo (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getInfo',
+      user: opts.user
+    }
+    this._sendRequestWithTtl(params, 'user', 10 * 60 * 1000, (err, user) => {
+      if (err) return cb(err)
+      cb(null, {
+        type: 'user',
+        name: user.name,
+        realName: user.realname || '',
+        country: user.country || '',
+        age: Number(user.age) || 0,
+        playcount: Number(user.playcount) || 0,
+        playlists: Number(user.playlists) || 0,
+        registered: Number(user.registered && user.registered.unixtime) || 0,
+        images: this._parseImages(user.image || [])
+      })
+    })
+  }
+
+  userRecentTracks (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getRecentTracks',
+      user: opts.user,
+      limit: opts.limit,
+      page: opts.page,
+      from: opts.from,
+      to: opts.to,
+      extended: opts.extended
+    }
+    this._sendRequestWithTtl(params, 'recenttracks', 2 * 60 * 1000, (err, data) => {
+      if (err) return cb(err)
+      const tracks = [].concat(data.track || []).map(track => {
+        const nowPlaying = track['@attr'] && track['@attr'].nowplaying === 'true'
+        return {
+          type: 'track',
+          name: track.name,
+          artistName: track.artist && (track.artist['#text'] || track.artist.name) || '',
+          albumName: track.album && track.album['#text'] || null,
+          images: track.image ? this._parseImages(track.image) : [],
+          date: track.date ? Number(track.date.uts) : null,
+          nowPlaying
+        }
+      })
+      cb(null, {
+        meta: this._parseMeta(data, opts),
+        result: tracks
+      })
+    })
+  }
+
+  userTopTracks (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getTopTracks',
+      user: opts.user,
+      period: opts.period,
+      limit: opts.limit,
+      page: opts.page
+    }
+    this._sendRequestWithTtl(params, 'toptracks', 10 * 60 * 1000, (err, data) => {
+      if (err) return cb(err)
+      const tracks = [].concat(data.track || []).map(track => {
+        return {
+          type: 'track',
+          name: track.name,
+          artistName: track.artist && track.artist.name || '',
+          playcount: Number(track.playcount) || 0,
+          rank: Number(track['@attr'] && track['@attr'].rank) || 0,
+          images: track.image ? this._parseImages(track.image) : []
+        }
+      })
+      cb(null, {
+        meta: this._parseMeta(data, opts),
+        result: tracks
+      })
+    })
+  }
+
+  userTopArtists (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getTopArtists',
+      user: opts.user,
+      period: opts.period,
+      limit: opts.limit,
+      page: opts.page
+    }
+    this._sendRequestWithTtl(params, 'topartists', 10 * 60 * 1000, (err, data) => {
+      if (err) return cb(err)
+      const artists = [].concat(data.artist || []).map(artist => {
+        return {
+          type: 'artist',
+          name: artist.name,
+          playcount: Number(artist.playcount) || 0,
+          rank: Number(artist['@attr'] && artist['@attr'].rank) || 0,
+          listeners: Number(artist.listeners) || 0,
+          images: artist.image ? this._parseImages(artist.image) : []
+        }
+      })
+      cb(null, {
+        meta: this._parseMeta(data, opts),
+        result: artists
+      })
+    })
+  }
+
+  userLovedTracks (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getLovedTracks',
+      user: opts.user,
+      limit: opts.limit,
+      page: opts.page
+    }
+    this._sendRequestWithTtl(params, 'lovedtracks', 5 * 60 * 1000, (err, data) => {
+      if (err) return cb(err)
+      const tracks = [].concat(data.track || []).map(track => {
+        return {
+          type: 'track',
+          name: track.name,
+          artistName: track.artist && track.artist.name || '',
+          date: track.date ? Number(track.date.uts) : null,
+          images: track.image ? this._parseImages(track.image) : []
+        }
+      })
+      cb(null, {
+        meta: this._parseMeta(data, opts),
+        result: tracks
+      })
+    })
+  }
+
+  userFriends (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getFriends',
+      user: opts.user,
+      recenttracks: opts.recenttracks,
+      limit: opts.limit,
+      page: opts.page
+    }
+    this._sendRequestWithTtl(params, 'friends', 10 * 60 * 1000, (err, data) => {
+      if (err) return cb(err)
+      const users = [].concat(data.user || []).map(u => {
+        return {
+          type: 'user',
+          name: u.name,
+          realName: u.realname || '',
+          country: u.country || '',
+          images: u.image ? this._parseImages(u.image) : []
+        }
+      })
+      cb(null, {
+        meta: this._parseMeta(data, opts),
+        result: users
+      })
+    })
+  }
+
+  userNeighbours (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getNeighbours',
+      user: opts.user,
+      limit: opts.limit
+    }
+    this._sendRequestWithTtl(params, 'neighbours', 10 * 60 * 1000, (err, data) => {
+      if (err) return cb(err)
+      const users = [].concat(data.user || []).map(u => {
+        return {
+          type: 'user',
+          name: u.name,
+          match: Number(u.match) || 0
+        }
+      })
+      cb(null, { result: users })
+    })
+  }
+
+  userPersonalTags (opts, cb) {
+    if (!opts.user || !opts.tag || !opts.taggingtype) {
+      return cb(new Error('Missing required params: user, tag, taggingtype'))
+    }
+    const params = {
+      method: 'user.getPersonalTags',
+      user: opts.user,
+      tag: opts.tag,
+      taggingtype: opts.taggingtype,
+      limit: opts.limit,
+      page: opts.page
+    }
+    this._sendRequestWithTtl(params, 'taggings', 10 * 60 * 1000, (err, data) => {
+      if (err) return cb(err)
+      let result
+      if (opts.taggingtype === 'artist') {
+        result = this._parseArtists([].concat(data.artists && data.artists.artist || []))
+      } else if (opts.taggingtype === 'album') {
+        result = this._parseAlbums([].concat(data.albums && data.albums.album || []))
+      } else {
+        result = this._parseTracks([].concat(data.tracks && data.tracks.track || []))
+      }
+      cb(null, {
+        meta: this._parseMeta(data, opts),
+        result
+      })
+    })
+  }
+
+  userWeeklyAlbumChart (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getWeeklyAlbumChart',
+      user: opts.user,
+      from: opts.from,
+      to: opts.to
+    }
+    this._sendRequestWithTtl(params, 'weeklyalbumchart', 15 * 60 * 1000, (err, data) => {
+      if (err) return cb(err)
+      const albums = [].concat(data.album || []).map(album => {
+        return {
+          type: 'album',
+          name: album.name,
+          artistName: album.artist && (album.artist['#text'] || album.artist) || '',
+          playcount: Number(album.playcount) || 0,
+          rank: Number(album['@attr'] && album['@attr'].rank) || 0
+        }
+      })
+      cb(null, { result: albums })
     })
   }
 }
