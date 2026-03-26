@@ -8,6 +8,7 @@ const fs = require('fs')
 // Import security modules
 const security = require('./utils/security.js')
 const { createAFKGuard } = require('./utils/afk-guard.js')
+const recommendation = require('./utils/recommendation.js')
 
 // Load environment variables
 require('dotenv').config()
@@ -66,6 +67,17 @@ function validateSearchQuery (query) {
     throw new Error('Search query must be a non-empty string')
   }
   return query.trim()
+}
+
+function validateUsername (username) {
+  if (!username || typeof username !== 'string' || username.trim().length === 0) {
+    throw new Error('Username must be a non-empty string')
+  }
+  const sanitized = username.trim()
+  if (!/^[a-zA-Z0-9_-]{2,15}$/.test(sanitized)) {
+    throw new Error('Invalid Last.fm username format (2-15 alphanumeric chars, hyphens, underscores)')
+  }
+  return sanitized
 }
 
 // Normalization utilities
@@ -171,7 +183,7 @@ function initializeApp () {
 
   try {
     validateApiKey(API_KEY, 'Last.fm')
-    lastfm = new LastFM(API_KEY)
+    lastfm = new LastFM(API_KEY, { cache: { ttl: 5 * 60 * 1000 } })
     safeLog('info', 'Last.fm client initialized successfully')
   } catch (error) {
     safeLog('error', 'Failed to initialize Last.fm client', { error: error.message })
@@ -483,6 +495,180 @@ ipcMain.handle('get-artist-info', async (event, artistName) => {
     })
   } catch (error) {
     safeLog('error', 'Last.fm getArtistInfo error', { error: error.message })
+    throw error
+  }
+})
+
+// Get user's top artists
+ipcMain.handle('get-user-top-artists', async (event, opts) => {
+  try {
+    if (!lastfm) {
+      throw new Error('Last.fm client not initialized. Please check your API key configuration.')
+    }
+    const validOpts = opts || {}
+    const user = validateUsername(validOpts.user)
+    const VALID_PERIODS = ['overall', '7day', '1month', '3month', '6month', '12month']
+    if (validOpts.period && !VALID_PERIODS.includes(validOpts.period)) {
+      throw new Error('Invalid period. Must be one of: ' + VALID_PERIODS.join(', '))
+    }
+    safeLog('info', 'Getting user top artists', { user, period: validOpts.period })
+    return new Promise((resolve, reject) => {
+      lastfm.userTopArtists({ user, period: validOpts.period, limit: validOpts.limit, page: validOpts.page }, (err, data) => {
+        if (err) {
+          safeLog('error', 'userTopArtists failed', { error: err.message })
+          reject(new Error('Failed to get user top artists: ' + err.message))
+        } else {
+          safeLog('info', 'User top artists retrieved', { count: data.result.length })
+          resolve(data)
+        }
+      })
+    })
+  } catch (error) {
+    safeLog('error', 'get-user-top-artists error', { error: error.message })
+    throw error
+  }
+})
+
+// Get user's recent tracks
+ipcMain.handle('get-user-recent-tracks', async (event, opts) => {
+  try {
+    if (!lastfm) {
+      throw new Error('Last.fm client not initialized. Please check your API key configuration.')
+    }
+    const validOpts = opts || {}
+    const user = validateUsername(validOpts.user)
+    safeLog('info', 'Getting user recent tracks', { user })
+    return new Promise((resolve, reject) => {
+      lastfm.userRecentTracks({ user, limit: validOpts.limit, page: validOpts.page, from: validOpts.from, to: validOpts.to }, (err, data) => {
+        if (err) {
+          safeLog('error', 'userRecentTracks failed', { error: err.message })
+          reject(new Error('Failed to get user recent tracks: ' + err.message))
+        } else {
+          safeLog('info', 'User recent tracks retrieved', { count: data.result.length })
+          resolve(data)
+        }
+      })
+    })
+  } catch (error) {
+    safeLog('error', 'get-user-recent-tracks error', { error: error.message })
+    throw error
+  }
+})
+
+// Get user's loved tracks
+ipcMain.handle('get-user-loved-tracks', async (event, opts) => {
+  try {
+    if (!lastfm) {
+      throw new Error('Last.fm client not initialized. Please check your API key configuration.')
+    }
+    const validOpts = opts || {}
+    const user = validateUsername(validOpts.user)
+    safeLog('info', 'Getting user loved tracks', { user })
+    return new Promise((resolve, reject) => {
+      lastfm.userLovedTracks({ user, limit: validOpts.limit, page: validOpts.page }, (err, data) => {
+        if (err) {
+          safeLog('error', 'userLovedTracks failed', { error: err.message })
+          reject(new Error('Failed to get user loved tracks: ' + err.message))
+        } else {
+          safeLog('info', 'User loved tracks retrieved', { count: data.result.length })
+          resolve(data)
+        }
+      })
+    })
+  } catch (error) {
+    safeLog('error', 'get-user-loved-tracks error', { error: error.message })
+    throw error
+  }
+})
+
+// Get user's neighbours (taste-similar users)
+ipcMain.handle('get-user-neighbours', async (event, opts) => {
+  try {
+    if (!lastfm) {
+      throw new Error('Last.fm client not initialized. Please check your API key configuration.')
+    }
+    const validOpts = opts || {}
+    const user = validateUsername(validOpts.user)
+    safeLog('info', 'Getting user neighbours', { user })
+    return new Promise((resolve, reject) => {
+      lastfm.userNeighbours({ user, limit: validOpts.limit }, (err, data) => {
+        if (err) {
+          safeLog('error', 'userNeighbours failed', { error: err.message })
+          reject(new Error('Failed to get user neighbours: ' + err.message))
+        } else {
+          safeLog('info', 'User neighbours retrieved', { count: data.result.length })
+          resolve(data)
+        }
+      })
+    })
+  } catch (error) {
+    safeLog('error', 'get-user-neighbours error', { error: error.message })
+    throw error
+  }
+})
+
+// Generate personalized music recommendations
+ipcMain.handle('get-music-recommendations', async (event, opts) => {
+  try {
+    if (!lastfm) {
+      throw new Error('Last.fm client not initialized. Please check your API key configuration.')
+    }
+    const validOpts = opts || {}
+    const user = validateUsername(validOpts.user)
+    const period = validOpts.period || 'overall'
+    safeLog('info', 'Generating music recommendations', { user, period })
+
+    // Fetch user data in parallel
+    const [topArtistsData, recentTracksData, lovedTracksData] = await Promise.all([
+      new Promise((resolve, reject) => {
+        lastfm.userTopArtists({ user, period, limit: 20 }, (err, data) => {
+          if (err) reject(err)
+          else resolve(data)
+        })
+      }),
+      new Promise((resolve) => {
+        lastfm.userRecentTracks({ user, limit: 200 }, (err, data) => {
+          // Non-fatal: resolve with empty result on error
+          resolve(err ? { result: [] } : data)
+        })
+      }),
+      new Promise((resolve) => {
+        lastfm.userLovedTracks({ user, limit: 50 }, (err, data) => {
+          // Non-fatal: resolve with empty result on error
+          resolve(err ? { result: [] } : data)
+        })
+      })
+    ])
+
+    const userData = {
+      topArtists: topArtistsData.result,
+      recentTracks: recentTracksData.result,
+      lovedTracks: lovedTracksData.result
+    }
+
+    return new Promise((resolve, reject) => {
+      recommendation.getRecommendations(userData, lastfm, {
+        limit: validOpts.limit || 20,
+        tagWeight: validOpts.tagWeight,
+        popularityWeight: validOpts.popularityWeight,
+        minListeners: validOpts.minListeners,
+        excludeKnownArtists: validOpts.excludeKnownArtists !== false,
+        sessionGapMinutes: validOpts.sessionGapMinutes
+      }, (err, result) => {
+        if (err) {
+          safeLog('error', 'Recommendation generation failed', { error: err.message })
+          reject(new Error('Failed to generate recommendations: ' + err.message))
+        } else {
+          safeLog('info', 'Music recommendations generated', {
+            count: result.recommendations.length,
+            sessions: result.sessions.length
+          })
+          resolve({ ...result, meta: { ...result.meta, user, period } })
+        }
+      })
+    })
+  } catch (error) {
+    safeLog('error', 'get-music-recommendations error', { error: error.message })
     throw error
   }
 })
