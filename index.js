@@ -626,6 +626,47 @@ class LastFM {
       })
     })
   }
+
+  userGetRecentTracks (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getRecentTracks',
+      user: opts.user,
+      limit: opts.limit || 1,
+      page: opts.page
+    }
+    this._sendRequest(params, 'recenttracks', (err, data) => {
+      if (err) return cb(err)
+      const tracks = data.track
+        ? (Array.isArray(data.track) ? data.track : [data.track])
+        : []
+      cb(null, { track: tracks, meta: data['@attr'] })
+    })
+  }
+
+  userGetInfo (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getInfo',
+      user: opts.user
+    }
+    this._sendRequest(params, 'user', (err, data) => {
+      if (err) return cb(err)
+      cb(null, {
+        username: data.name,
+        realname: data.realname,
+        url: data.url,
+        playcount: Number(data.playcount),
+        registered: Number(data.registered && data.registered.unixtime),
+        country: data.country,
+        images: data.image ? this._parseImages(data.image) : []
+      })
+    })
+  }
 }
 
 module.exports = LastFM

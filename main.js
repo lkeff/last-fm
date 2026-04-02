@@ -8,6 +8,7 @@ const fs = require('fs');
 // Import security modules
 const security = require('./utils/security.js');
 const { createAFKGuard } = require('./utils/afk-guard.js');
+const DiscordPresenceService = require('./presence/DiscordPresenceService.js');
 
 // Load environment variables
 require('dotenv').config()
@@ -153,6 +154,23 @@ try {
 } catch (error) {
   safeLog('error', 'Failed to initialize Last.fm client', { error: error.message })
   lastfm = null
+}
+
+// Discord Rich Presence — optional, requires DISCORD_CLIENT_ID and LASTFM_USERNAME
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID
+const LASTFM_USERNAME = process.env.LASTFM_USERNAME
+let discordPresence = null
+
+if (DISCORD_CLIENT_ID && LASTFM_USERNAME && lastfm) {
+  try {
+    discordPresence = new DiscordPresenceService(DISCORD_CLIENT_ID, lastfm, LASTFM_USERNAME)
+    safeLog('info', 'Discord presence service created', { username: LASTFM_USERNAME })
+  } catch (error) {
+    safeLog('warn', 'Discord presence service could not be created', { error: error.message })
+    discordPresence = null
+  }
+} else {
+  safeLog('info', 'Discord Rich Presence disabled (set DISCORD_CLIENT_ID and LASTFM_USERNAME to enable)')
 }
 
 // Initialize AFK Guard
@@ -430,10 +448,20 @@ function setupNavigationSecurity() {
 }
 
 // Create window when Electron is ready
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initLocalSamplesDB()
   setupSecurityHandlers()
   createWindow()
+
+  // Start Discord Rich Presence if configured
+  if (discordPresence) {
+    try {
+      await discordPresence.start()
+      safeLog('info', 'Discord Rich Presence started')
+    } catch (error) {
+      safeLog('warn', 'Discord Rich Presence failed to start', { error: error.message })
+    }
+  }
 
   app.on('activate', () => {
     // On macOS, recreate window when dock icon is clicked and no windows are open
@@ -568,7 +596,17 @@ app.on('window-all-closed', () => {
 // Security cleanup on app exit
 app.on('before-quit', () => {
   safeLog('info', 'Application shutting down, performing security cleanup')
-  
+
+  // Stop Discord Rich Presence
+  if (discordPresence) {
+    try {
+      discordPresence.stop()
+      safeLog('info', 'Discord Rich Presence stopped')
+    } catch (error) {
+      safeLog('error', 'Error stopping Discord Rich Presence', { error: error.message })
+    }
+  }
+
   // Stop AFK guard
   if (afkGuard) {
     try {
