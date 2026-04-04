@@ -61,6 +61,7 @@
     "keytar": "^7.9.0",
     "run-parallel": "^1.1.10",
     "simple-get": "^4.0.0",
+    "simple-git": "^3.27.0",
     "validator": "^13.9.0"
   },
   "devDependencies": {
