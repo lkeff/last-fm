@@ -1,6 +1,10 @@
 # Multi-stage build for last-fm (Node.js)
 FROM node:20-alpine AS builder
 
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+ARG BUILD_DATE=unknown
+
 WORKDIR /app
 
 # Install build dependencies
@@ -11,6 +15,8 @@ COPY package*.json yarn.lock* pnpm-lock.yaml* ./
 
 # Install dependencies
 RUN npm install
+
+RUN npm audit --production --audit-level=high || true
 
 # Copy source
 COPY . .
@@ -46,6 +52,9 @@ COPY --from=builder /app .
 
 # Set environment
 ENV NODE_ENV=production
+ENV GIT_COMMIT=$GIT_COMMIT \
+    GIT_BRANCH=$GIT_BRANCH \
+    BUILD_DATE=$BUILD_DATE
 
 EXPOSE 3000
 
