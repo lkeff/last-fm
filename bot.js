@@ -7,6 +7,7 @@
 require('dotenv').config()
 const LastFM = require('./index.js')
 const readline = require('readline')
+const { getGitInfo } = require('./utils/gitInfo')
 
 // You need to provide your Last.fm API key here
 // Get one from: https://www.last.fm/api/account/create
@@ -171,6 +172,9 @@ function getChartTopArtists () {
 
 // Start the bot
 console.log('Starting Last.fm Bot...')
+getGitInfo().then(gitInfo => {
+  console.log(`Git: branch=${gitInfo.branch} commit=${gitInfo.commit ? gitInfo.commit.slice(0, 7) : 'unknown'} tags=${gitInfo.tags.join(',') || 'none'}`);
+}).catch(() => {});
 console.log('NOTE: You need to set your Last.fm API key in the bot.js file')
 console.log('Get a free API key from: https://www.last.fm/api/account/create')
 
