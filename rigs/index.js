@@ -14,6 +14,7 @@ const studioRig = require('./studio-rig')
 const liveRig = require('./live-rig')
 const orchestra = require('./orchestra')
 const djBooth = require('./dj-booth')
+const southAmericanOrchestra = require('./south-american-orchestra')
 
 /**
  * All available rig configurations
@@ -22,7 +23,8 @@ const RIGS = {
     studio: studioRig.STUDIO_RIG,
     live: liveRig.LIVE_RIG,
     orchestra: orchestra.ORCHESTRA,
-    djBooth: djBooth.DJ_BOOTH
+    djBooth: djBooth.DJ_BOOTH,
+    southAmericanOrchestra: southAmericanOrchestra.SA_ORCHESTRA
 }
 
 /**
@@ -35,7 +37,7 @@ function getAllRigs() {
 
 /**
  * Get a specific rig by type
- * @param {string} type - Rig type (studio, live, orchestra, djBooth)
+ * @param {string} type - Rig type (studio, live, orchestra, djBooth, southAmericanOrchestra)
  * @returns {Object|null} Rig configuration or null if not found
  */
 function getRig(type) {
@@ -71,6 +73,14 @@ function getRigsSummary() {
             totalMusicians: orchestra.ORCHESTRA.totalMusicians,
             sections: orchestra.getMusicianCount(),
             principals: orchestra.getPrincipals().length
+        },
+        southAmericanOrchestra: {
+            name: southAmericanOrchestra.SA_ORCHESTRA.name,
+            type: southAmericanOrchestra.SA_ORCHESTRA.type,
+            totalMusicians: southAmericanOrchestra.SA_ORCHESTRA.totalMusicians,
+            sections: southAmericanOrchestra.getSAMusicianCount(),
+            principals: southAmericanOrchestra.getSAPrincipals().length,
+            saInstruments: southAmericanOrchestra.getSAInstruments().length
         },
         djBooth: {
             name: djBooth.DJ_BOOTH.name,
@@ -114,6 +124,7 @@ function searchEquipment(query) {
     searchObject(RIGS.live, '', 'live')
     searchObject(RIGS.orchestra, '', 'orchestra')
     searchObject(RIGS.djBooth, '', 'djBooth')
+    searchObject(RIGS.southAmericanOrchestra, '', 'southAmericanOrchestra')
 
     return results
 }
@@ -232,10 +243,12 @@ module.exports = {
     liveRig,
     orchestra,
     djBooth,
+    southAmericanOrchestra,
 
     // Direct access to configurations
     STUDIO_RIG: studioRig.STUDIO_RIG,
     LIVE_RIG: liveRig.LIVE_RIG,
     ORCHESTRA: orchestra.ORCHESTRA,
-    DJ_BOOTH: djBooth.DJ_BOOTH
+    DJ_BOOTH: djBooth.DJ_BOOTH,
+    SA_ORCHESTRA: southAmericanOrchestra.SA_ORCHESTRA
 }

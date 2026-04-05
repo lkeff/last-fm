@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  lastfm:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: lastfm:production
+    container_name: lastfm-app
+    restart: unless-stopped
+    ports:
+      - "3004:3000"
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Claude extended thinking (SA orchestra audit & repertoire)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_THINKING_BUDGET_TOKENS=${CLAUDE_THINKING_BUDGET_TOKENS:-10000}
+      - CLAUDE_AUDIT_LOG_CHANNEL_ID=${CLAUDE_AUDIT_LOG_CHANNEL_ID:-}
+      # South American orchestra section
+      - SA_ORCHESTRA_ENABLED=${SA_ORCHESTRA_ENABLED:-true}
+    volumes:
+      - lastfm_uploads:/app/uploads
+      - lastfm_logs:/app/logs
+      - lastfm_config:/app/config
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    labels:
+      - "com.lastfm.description=Last.fm Music Integration Bot"
+      - "com.lastfm.version=5.3.0"
+      - "com.lastfm.port=3004"
+
+volumes:
+  lastfm_uploads:
+    driver: local
+  lastfm_logs:
+    driver: local
+  lastfm_config:
+    driver: local
+
+networks:
+  default:
+    name: lastfm-network
+    driver: bridge
