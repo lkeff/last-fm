@@ -8,9 +8,9 @@
  * @version 1.0.0
  */
 
-import crypto from 'crypto'
-import os from 'os'
-import { URL } from 'url'
+const crypto = require('crypto')
+const os = require('os')
+const { URL } = require('url')
 
 // Security Configuration Constants
 const SECURITY_CONFIG = {
@@ -88,7 +88,7 @@ const SECURITY_CONFIG = {
  * const safe = sanitizeHtml('<p>Hello <script>alert("xss")</script>World</p>');
  * // Returns: '<p>Hello World</p>'
  */
-function sanitizeHtml (htmlString) {
+function sanitizeHtml(htmlString) {
   if (typeof htmlString !== 'string') {
     throw new Error('Input must be a string')
   }
@@ -150,7 +150,7 @@ function sanitizeHtml (htmlString) {
  * const safe = sanitizeSearchResults(results);
  * // Returns: [{ name: 'Song', description: 'Safe text' }]
  */
-function sanitizeSearchResults (resultsArray) {
+function sanitizeSearchResults(resultsArray) {
   if (!Array.isArray(resultsArray)) {
     throw new Error('Input must be an array')
   }
@@ -189,7 +189,7 @@ function sanitizeSearchResults (resultsArray) {
  * const escaped = escapeHtml('<script>alert("xss")</script>');
  * // Returns: '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
  */
-function escapeHtml (string) {
+function escapeHtml(string) {
   if (typeof string !== 'string') {
     throw new Error('Input must be a string')
   }
@@ -220,7 +220,7 @@ function escapeHtml (string) {
  * const safe = isUrlSafe('https://last.fm/user/example');
  * // Returns: true
  */
-function isUrlSafe (url) {
+function isUrlSafe(url) {
   if (typeof url !== 'string' || !url.trim()) {
     return false
   }
@@ -255,7 +255,7 @@ function isUrlSafe (url) {
  */
 const TWO = 2
 const THREE = 3
-function detectSuspiciousUrl (url) {
+function detectSuspiciousUrl(url) {
   const result = {
     suspicious: false,
     reasons: []
@@ -345,7 +345,7 @@ function detectSuspiciousUrl (url) {
  * const validation = validateExternalLink('https://last.fm/user/example');
  * // Returns: { safe: true, trusted: true, suspicious: false, reasons: [] }
  */
-function validateExternalLink (url) {
+function validateExternalLink(url) {
   const result = {
     safe: false,
     trusted: false,
@@ -386,7 +386,7 @@ function validateExternalLink (url) {
  * const hashed = hashSensitiveData('api_key_12345');
  * // Returns: 'sha256:a1b2c3d4...'
  */
-function hashSensitiveData (data) {
+function hashSensitiveData(data) {
   if (typeof data !== 'string') {
     throw new Error('Input must be a string')
   }
@@ -411,7 +411,7 @@ function hashSensitiveData (data) {
  * // Returns: { message: 'Login', api_key: 'sha256:...' }
  */
 const PBKDF2_ITERATIONS = 100000
-function scrubLogData (logObject) {
+function scrubLogData(logObject) {
   if (typeof logObject !== 'object' || logObject === null) {
     return logObject
   }
@@ -448,7 +448,7 @@ function scrubLogData (logObject) {
  * const key = generateSecureKey();
  * // Returns: Buffer with 32 random bytes
  */
-function generateSecureKey (length = SECURITY_CONFIG.ENCRYPTION.KEY_LENGTH) {
+function generateSecureKey(length = SECURITY_CONFIG.ENCRYPTION.KEY_LENGTH) {
   if (typeof length !== 'number' || length <= 0) {
     throw new Error('Key length must be a positive number')
   }
@@ -473,7 +473,7 @@ function generateSecureKey (length = SECURITY_CONFIG.ENCRYPTION.KEY_LENGTH) {
  * const encrypted = encryptData('sensitive data', key);
  * // Returns: { encrypted: Buffer, iv: Buffer, tag: Buffer }
  */
-function encryptData (data, key) {
+function encryptData(data, key) {
   if (!data) {
     throw new Error('Data is required for encryption')
   }
@@ -513,7 +513,7 @@ function encryptData (data, key) {
  * const decrypted = decryptData(encryptedData, key);
  * // Returns: 'sensitive data'
  */
-function decryptData (encryptedData, key) {
+function decryptData(encryptedData, key) {
   if (!encryptedData || typeof encryptedData !== 'object') {
     throw new Error('Encrypted data object is required')
   }
@@ -550,7 +550,7 @@ function decryptData (encryptedData, key) {
  * const machineKey = deriveKeyFromMachine();
  * // Returns: Buffer with machine-specific key
  */
-function deriveKeyFromMachine () {
+function deriveKeyFromMachine() {
   try {
     // Collect machine-specific identifiers
     const identifiers = [

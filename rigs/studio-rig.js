@@ -444,30 +444,123 @@ const STUDIO_RIG = {
                     colors: ['Black', 'Red', 'Blue', 'Yellow', 'Green', 'Orange', 'Purple', 'White'],
                     quantity: 200
                 },
-                patchBay: {
-                    manufacturer: 'Moog',
-                    model: 'CP3 Mixer/Patchbay',
-                    quantity: 2,
-                    purpose: 'Cross-patching between systems'
+                monsterCable: {
+                    xlrCables: {
+                        model: 'Monster Cable Pro XLR',
+                        lengths: ['10ft', '15ft', '25ft', '50ft'],
+                        quantity: 50,
+                        purpose: 'Professional microphone interconnects',
+                        features: ['OFC conductors', 'Dual shielding', 'Gold contacts', 'Lifetime warranty']
+                    },
+                    instrumentCables: {
+                        model: 'Monster Cable Instrument',
+                        lengths: ['10ft', '20ft', '30ft'],
+                        quantity: 30,
+                        purpose: 'Guitar and bass connections',
+                        features: ['OFC copper', 'Noise rejection', 'Right-angle options', 'Durability']
+                    },
+                    patchCables: {
+                        model: 'Monster Cable Studio Patch',
+                        lengths: ['1ft', '3ft', '6ft'],
+                        quantity: 100,
+                        purpose: 'Patch bay and studio connections',
+                        features: ['Color-coded', 'Balanced design', 'High flexibility', 'Clear labeling']
+                    },
+                    digitalCables: {
+                        aesEbu: {
+                            model: 'Monster Cable Digital AES/EBU',
+                            lengths: ['5ft', '10ft', '25ft'],
+                            quantity: 20,
+                            purpose: 'Digital audio interconnects'
+                        },
+                        spdif: {
+                            model: 'Monster Cable Digital S/PDIF',
+                            lengths: ['3ft', '6ft', '10ft'],
+                            quantity: 15,
+                            purpose: 'Consumer digital audio'
+                        },
+                        optical: {
+                            model: 'Monster Cable Toslink Optical',
+                            lengths: ['3ft', '6ft', '15ft'],
+                            quantity: 25,
+                            purpose: 'ADAT and optical connections'
+                        }
+                    }
+                },
+                cableManagement: {
+                    cableTrays: 'Middle Atlantic cable management system',
+                    labels: 'Brother P-touch cable labeling system',
+                    ties: 'Velcro cable ties (reusable)',
+                    organizers: 'Cable organizer racks and bins'
                 },
                 cvDistribution: {
                     manufacturer: 'Moog',
                     model: '994 Multiples',
                     quantity: 8,
                     purpose: 'CV/Gate signal distribution'
-                }
+                },
+                accessories: [
+                    { type: 'Moog 951 Keyboard Controller', quantity: 2 },
+                    { type: 'Moog 952 Duophonic Keyboard', quantity: 1 },
+                    { type: 'Moog 1125 Sample-Hold', quantity: 2 },
+                    { type: 'Moog 1630 Linear Controller', quantity: 2 }
+                ]
             },
-            accessories: [
-                { type: 'Moog 951 Keyboard Controller', quantity: 2 },
-                { type: 'Moog 952 Duophonic Keyboard', quantity: 1 },
-                { type: 'Moog 1125 Sample-Hold', quantity: 2 },
-                { type: 'Moog 1630 Linear Controller', quantity: 2 }
-            ],
             midiInterface: {
                 manufacturer: 'Kenton',
                 model: 'Pro Solo MkIII',
                 quantity: 2,
                 purpose: 'MIDI to CV/Gate conversion'
+            }
+        },
+        midiControllers: {
+            masterKeyboard: {
+                manufacturer: 'Native Instruments',
+                model: 'Komplete Kontrol S88',
+            },
+            midiControllers: {
+                masterKeyboard: {
+                    manufacturer: 'Native Instruments',
+                    model: 'Komplete Kontrol S88',
+                    quantity: 1,
+                    purpose: 'Primary MIDI keyboard controller with DAW integration',
+                    features: ['88-key weighted action', 'MIDI CC control', 'DAW integration', 'Smart Play features']
+                },
+                controlSurface: {
+                    manufacturer: 'Avid',
+                    model: 'S3',
+                    quantity: 1,
+                    purpose: 'Professional DAW control surface',
+                    features: ['16 faders', '32 rotary encoders', 'Touch-sensitive controls', 'EUCON support']
+                },
+                drumPads: {
+                    manufacturer: 'Native Instruments',
+                    model: 'Maschine Mk3',
+                    quantity: 1,
+                    purpose: 'Drum programming and sample triggering',
+                    features: ['16 velocity-sensitive pads', 'MIDI controller', 'Standalone operation']
+                }
+            },
+            midiInterface: {
+                primary: {
+                    manufacturer: 'MOTU',
+                    model: 'MIDI Express XT',
+                    ports: 8,
+                    purpose: 'Multi-port MIDI interface for studio routing',
+                    features: ['8-in/8-out MIDI', 'USB connectivity', 'MIDI routing', 'MIDI merge']
+                },
+                networking: {
+                    manufacturer: 'RME',
+                    model: 'MADI-Router',
+                    purpose: 'MIDI over MADI/Dante networking',
+                    features: ['64-channel MADI', 'Dante integration', 'MIDI over IP', 'Low latency']
+                },
+                legacy: {
+                    manufacturer: 'Kenton',
+                    model: 'Pro Solo MkIII',
+                    quantity: 2,
+                    purpose: 'MIDI to CV/Gate conversion for modular synths'
+                }
             }
         },
         guitars: [
@@ -644,7 +737,9 @@ function getEquipmentCount() {
         compressors: 0,
         equalizers: 0,
         monitors: 0,
-        instruments: 0
+        instruments: 0,
+        midiControllers: 0,
+        cables: 0
     }
 
     // Count microphones
@@ -671,26 +766,41 @@ function getEquipmentCount() {
     STUDIO_RIG.outboard.equalizers.forEach(eq => { counts.equalizers += eq.quantity || 1 })
 
     // Count monitors
-    counts.monitors = STUDIO_RIG.monitoring.mainMonitors.quantity +
-        STUDIO_RIG.monitoring.nearfield.quantity +
-        STUDIO_RIG.monitoring.midfield.quantity +
-        STUDIO_RIG.monitoring.subwoofer.quantity +
-        STUDIO_RIG.monitoring.surroundSystem.speakers.length
+    Object.values(STUDIO_RIG.monitoring).forEach(monitor => {
+        if (monitor.quantity) counts.monitors += monitor.quantity
+    })
 
     // Count instruments
     Object.values(STUDIO_RIG.instruments).forEach(category => {
         if (Array.isArray(category)) {
-            counts.instruments += category.length
+            category.forEach(inst => { counts.instruments += inst.quantity || 1 })
         }
     })
 
+    // Count MIDI controllers
+    if (STUDIO_RIG.instruments.synthesizers && STUDIO_RIG.instruments.synthesizers.midiControllers) {
+        Object.values(STUDIO_RIG.instruments.synthesizers.midiControllers).forEach(controller => {
+            counts.midiControllers += controller.quantity || 1
+        })
+    }
+
+    // Count cables
+    if (STUDIO_RIG.instruments.synthesizers && STUDIO_RIG.instruments.synthesizers.patchwork) {
+        if (STUDIO_RIG.instruments.synthesizers.patchwork.cables) {
+            counts.cables += STUDIO_RIG.instruments.synthesizers.patchwork.cables.quantity || 0
+        }
+        if (STUDIO_RIG.instruments.synthesizers.patchwork.monsterCable) {
+            Object.values(STUDIO_RIG.instruments.synthesizers.patchwork.monsterCable).forEach(cableType => {
+                if (cableType.quantity) counts.cables += cableType.quantity
+                if (Array.isArray(cableType)) {
+                    cableType.forEach(cable => { counts.cables += cable.quantity || 0 })
+                }
+            })
+        }
+    }
+
     return counts
 }
-
-/**
- * Generate signal flow diagram data
- * @returns {Object} Signal flow nodes and connections
- */
 function getSignalFlow() {
     return {
         nodes: [

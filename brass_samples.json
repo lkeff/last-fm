@@ -1,0 +1,30 @@
+{
+  "samples": [
+    {
+      "id": 1,
+      "name": "Demo Trumpet Stab",
+      "tags": [
+        "trumpet",
+        "brass",
+        "stab"
+      ],
+      "description": "A bright trumpet stab sound",
+      "duration": 1.2,
+      "filepath": "/demo/trumpet_stab.wav",
+      "added_date": "2026-02-04T17:13:36.946Z"
+    },
+    {
+      "id": 2,
+      "name": "Demo Horn Hit",
+      "tags": [
+        "horn",
+        "brass",
+        "orchestral"
+      ],
+      "description": "Orchestral horn hit",
+      "duration": 2.1,
+      "filepath": "/demo/horn_hit.wav",
+      "added_date": "2026-02-04T17:13:36.952Z"
+    }
+  ]
+}

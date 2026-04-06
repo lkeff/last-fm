@@ -6,6 +6,7 @@ FROM node:18-alpine AS base
 RUN apk add --no-cache \
     dumb-init \
     curl \
+    ffmpeg \
     && rm -rf /var/cache/apk/*
 
 # ─── pnpm injection via corepack (no npm install -g) ─────────────────────────

@@ -202,3 +202,4 @@ audio-cache/
 # Electron Fiddle specific
 fiddle-cache/
 .env.template
+.metadata_never_index

@@ -1,7 +1,7 @@
 // Load environment variables from .env file
-import 'dotenv/config'
+require('dotenv/config')
 
-import LastFM from './index.js'
+const LastFM = require('./index.js')
 
 const apiKey = process.env.LASTFM_API_KEY
 
@@ -19,6 +19,6 @@ lastfm.chartTopTracks({ limit: TOP_TRACKS_LIMIT }, (err, data) => {
   }
 
   data.result.forEach((track, index) => {
-    
+
   })
 })

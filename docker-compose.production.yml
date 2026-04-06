@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  lastfm:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: lastfm:production
+    container_name: lastfm-app-prod
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - LASTFM_API_KEY=${LASTFM_API_KEY}
+      - FREESOUND_API_KEY=${FREESOUND_API_KEY}
+    env_file:
+      - .env.production
+    volumes:
+      - lastfm_logs:/app/logs
+      - lastfm_uploads:/app/uploads
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "
+        const http = require('http');
+        const checks = ['/health', '/api/search?q=test', '/api/studio/rig'];
+        let completed = 0;
+        checks.forEach(endpoint => {
+          http.get('http://localhost:3000' + endpoint, (res) => {
+            if (res.statusCode === 200) completed++;
+            if (completed === checks.length) process.exit(0);
+          }).on('error', () => process.exit(1));
+        });
+        setTimeout(() => process.exit(1), 5000);
+      "]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/node_modules/.cache
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lastfm-prod.rule=Host(`your-domain.com`)"
+      - "traefik.http.services.lastfm-prod.loadbalancer.server.port=3000"
+      - "com.lastfm.description=Last.fm Desktop Production with Studio Enhancements"
+      - "com.lastfm.version=5.3.0"
+      - "com.lastfm.environment=production"
+
+  nginx:
+    image: nginx:alpine
+    container_name: lastfm-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - lastfm_logs:/var/log/nginx
+    depends_on:
+      - lastfm
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx-prod.rule=Host(`your-domain.com`)"
+
+  redis:
+    image: redis:alpine
+    container_name: lastfm-redis-prod
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/etc/redis/redis.conf:ro
+    command: redis-server /etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    labels:
+      - "com.lastfm.service=redis"
+      - "com.lastfm.environment=production"
+
+  # Monitoring with Prometheus (optional)
+  prometheus:
+    image: prom/prometheus:alpine
+    container_name: lastfm-prometheus
+    restart: always
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Grafana for visualization (optional)
+  grafana:
+    image: grafana/grafana:alpine
+    container_name: lastfm-grafana
+    restart: always
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  default:
+    name: lastfm-prod-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  lastfm_logs:
+    driver: local
+  lastfm_uploads:
+    driver: local

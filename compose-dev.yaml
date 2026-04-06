@@ -1,12 +1,37 @@
+version: '3.8'
+
 services:
-  app:
-    entrypoint:
-    - sleep
-    - infinity
-    image: docker/dev-environments-javascript:stable-1
-    init: true
+  lastfm-dev:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: lastfm:dev
+    container_name: lastfm-dev
+    restart: "no"
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Node.js debug port
+    environment:
+      - NODE_ENV=development
+      - LASTFM_API_KEY=${LASTFM_API_KEY}
+      - DEBUG=lastfm:*
+      - CHOKIDAR_USEPOLLING=true  # For file watching in Docker
+    env_file:
+      - .env
     volumes:
-    - type: bind
-      source: /var/run/docker.sock
-      target: /var/run/docker.sock
+      - .:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+      - ./config:/app/config
+    command: ["node", "--inspect=0.0.0.0:9229", "main.js"]
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
 
