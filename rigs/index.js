@@ -15,6 +15,7 @@ const liveRig = require('./live-rig')
 const orchestra = require('./orchestra')
 const djBooth = require('./dj-booth')
 const southAmericanOrchestra = require('./south-american-orchestra')
+const romanOdysseyOrchestra = require('./roman-odyssey-orchestra')
 
 /**
  * All available rig configurations
@@ -24,7 +25,8 @@ const RIGS = {
     live: liveRig.LIVE_RIG,
     orchestra: orchestra.ORCHESTRA,
     djBooth: djBooth.DJ_BOOTH,
-    southAmericanOrchestra: southAmericanOrchestra.SA_ORCHESTRA
+    southAmericanOrchestra: southAmericanOrchestra.SA_ORCHESTRA,
+    romanOdysseyOrchestra: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA
 }
 
 /**
@@ -82,6 +84,13 @@ function getRigsSummary() {
             principals: southAmericanOrchestra.getSAPrincipals().length,
             saInstruments: southAmericanOrchestra.getSAInstruments().length
         },
+        romanOdysseyOrchestra: {
+            name: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA.name,
+            type: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA.type,
+            totalMusicians: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA.totalMusicians,
+            sections: romanOdysseyOrchestra.getRomanOdysseyMusicianCount(),
+            principals: romanOdysseyOrchestra.getRomanOdysseyPrincipals().length
+        },
         djBooth: {
             name: djBooth.DJ_BOOTH.name,
             type: djBooth.DJ_BOOTH.type,
@@ -125,6 +134,7 @@ function searchEquipment(query) {
     searchObject(RIGS.orchestra, '', 'orchestra')
     searchObject(RIGS.djBooth, '', 'djBooth')
     searchObject(RIGS.southAmericanOrchestra, '', 'southAmericanOrchestra')
+    searchObject(RIGS.romanOdysseyOrchestra, '', 'romanOdysseyOrchestra')
 
     return results
 }
@@ -147,6 +157,10 @@ function getTotalIOCount() {
         orchestra: {
             musicians: orchestra.ORCHESTRA.totalMusicians,
             recordingChannels: 24 // Typical orchestra recording setup
+        },
+        romanOdysseyOrchestra: {
+            musicians: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA.totalMusicians,
+            recordingChannels: 32 // Cinematic hybrid orchestra setup
         },
         djBooth: {
             mixerChannels: djBooth.DJ_BOOTH.mixer.primary.channels,
@@ -184,6 +198,13 @@ function generateManifest() {
                 roster: orchestra.generateRoster(),
                 seatingChart: orchestra.generateSeatingChart(),
                 principals: orchestra.getPrincipals()
+            },
+            romanOdysseyOrchestra: {
+                name: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA.name,
+                version: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA.version,
+                musicians: romanOdysseyOrchestra.getRomanOdysseyMusicianCount(),
+                principals: romanOdysseyOrchestra.getRomanOdysseyPrincipals(),
+                repertoire: romanOdysseyOrchestra.getRomanOdysseyRepertoire()
             },
             djBooth: {
                 name: djBooth.DJ_BOOTH.name,
@@ -244,11 +265,13 @@ module.exports = {
     orchestra,
     djBooth,
     southAmericanOrchestra,
+    romanOdysseyOrchestra,
 
     // Direct access to configurations
     STUDIO_RIG: studioRig.STUDIO_RIG,
     LIVE_RIG: liveRig.LIVE_RIG,
     ORCHESTRA: orchestra.ORCHESTRA,
     DJ_BOOTH: djBooth.DJ_BOOTH,
-    SA_ORCHESTRA: southAmericanOrchestra.SA_ORCHESTRA
+    SA_ORCHESTRA: southAmericanOrchestra.SA_ORCHESTRA,
+    ROMAN_ODYSSEY_ORCHESTRA: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA
 }

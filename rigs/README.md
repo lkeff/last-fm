@@ -4,13 +4,15 @@ Comprehensive audio production rig configurations for the Last.fm Desktop applic
 
 ## Overview
 
-This module provides detailed configurations for four professional audio setups:
+This module provides detailed configurations for six professional audio setups:
 
 | Rig | Description | Key Stats |
 |-----|-------------|-----------|
 | **Studio Rig** | Full professional recording studio | 64+ I/O channels, Dolby Atmos 7.1.4 |
 | **Live Rig** | Concert/festival PA system | 20,000 capacity, L-Acoustics K2 |
 | **Orchestra** | 89-person symphony orchestra | Full sections, traditional seating |
+| **South American Orchestra** | 72-musician regional hybrid orchestra | Andean, tango, Afro-Brazilian integration |
+| **Roman Odyssey Orchestra** | 96-musician cinematic hybrid orchestra | Ancient color section + epic percussion |
 | **DJ Booth** | Professional club/festival DJ setup | 4x CDJ-3000, DJM-V10 |
 
 ## Installation
@@ -27,6 +29,7 @@ const allRigs = rigs.getAllRigs();
 const studio = rigs.getRig('studio');
 const live = rigs.getRig('live');
 const orchestra = rigs.getRig('orchestra');
+const romanOdysseyOrchestra = rigs.getRig('romanOdysseyOrchestra');
 const djBooth = rigs.getRig('djBooth');
 ```
 
@@ -119,6 +122,30 @@ const seating = orchestra.generateSeatingChart();
 const principals = orchestra.getPrincipals();
 ```
 
+## Roman Odyssey Orchestra (96 Musicians)
+
+Hybrid cinematic orchestra configuration for epic scoring:
+
+- **Symphonic Core**: 52 strings, 12 woodwinds, 14 brass
+- **Epic Percussion**: 10-player low battery + orchestral metals
+- **Ancient Color**: Tibia, Cornu, Lyre/Kithara, Aulos-reed doubles
+- **Production-Oriented**: Stem-ready recording layout and profile presets
+
+### Usage
+
+```javascript
+const { romanOdysseyOrchestra } = require('./rigs');
+
+// Get section counts
+const counts = romanOdysseyOrchestra.getRomanOdysseyMusicianCount();
+
+// Get principals
+const principals = romanOdysseyOrchestra.getRomanOdysseyPrincipals();
+
+// Get repertoire profiles
+const profiles = romanOdysseyOrchestra.getRomanOdysseyRepertoire();
+```
+
 ## DJ Booth
 
 Professional club/festival DJ setup:
@@ -179,6 +206,8 @@ rigs/
 ├── studio-rig.js   # Studio configuration
 ├── live-rig.js     # Live PA configuration
 ├── orchestra.js    # Orchestra configuration
+├── south-american-orchestra.js # South American Orchestra configuration
+├── roman-odyssey-orchestra.js  # Roman Odyssey Orchestra configuration
 ├── dj-booth.js     # DJ booth configuration
 └── README.md       # This file
 ```
