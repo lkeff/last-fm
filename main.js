@@ -8,6 +8,7 @@ const fs = require('fs');
 // Import security modules
 const security = require('./utils/security.js');
 const { createAFKGuard } = require('./utils/afk-guard.js');
+const bluetooth = require('./utils/bluetooth.js');
 
 // Load environment variables
 require('dotenv').config()
@@ -1128,5 +1129,82 @@ ipcMain.handle('get-fiddle-templates', async (event) => {
   } catch (error) {
     safeLog('error', 'Error loading fiddle templates', { error: error.message })
     return []
+  }
+})
+
+// ── Bluetooth IPC Handlers ────────────────────────────────────────────────────
+
+ipcMain.handle('bluetooth-status', async (event) => {
+  try {
+    const status = await bluetooth.getStatus()
+    safeLog('info', 'Bluetooth status requested', { powered: status.powered })
+    return { success: true, data: status }
+  } catch (error) {
+    safeLog('error', 'bluetooth-status error', { error: error.message })
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('bluetooth-scan', async (event) => {
+  try {
+    const [devices, sinks] = await Promise.all([
+      bluetooth.listDevices(),
+      bluetooth.listAudioSinks()
+    ])
+    safeLog('info', 'Bluetooth scan completed', { deviceCount: devices.length, sinkCount: sinks.length })
+    return { success: true, data: { devices, sinks } }
+  } catch (error) {
+    safeLog('error', 'bluetooth-scan error', { error: error.message })
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('bluetooth-connect', async (event, address) => {
+  try {
+    if (!address || typeof address !== 'string') {
+      return { success: false, error: 'Device address is required' }
+    }
+    if (!bluetooth.isValidAddress(address)) {
+      safeLog('warn', 'bluetooth-connect: invalid address rejected')
+      return { success: false, error: 'Invalid device address format' }
+    }
+    const result = await bluetooth.connectDevice(address)
+    safeLog('info', 'Bluetooth connect attempted', { success: result.success })
+    return result
+  } catch (error) {
+    safeLog('error', 'bluetooth-connect error', { error: error.message })
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('bluetooth-disconnect', async (event, address) => {
+  try {
+    if (!address || typeof address !== 'string') {
+      return { success: false, error: 'Device address is required' }
+    }
+    if (!bluetooth.isValidAddress(address)) {
+      safeLog('warn', 'bluetooth-disconnect: invalid address rejected')
+      return { success: false, error: 'Invalid device address format' }
+    }
+    const result = await bluetooth.disconnectDevice(address)
+    safeLog('info', 'Bluetooth disconnect attempted', { success: result.success })
+    return result
+  } catch (error) {
+    safeLog('error', 'bluetooth-disconnect error', { error: error.message })
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('bluetooth-power', async (event, on) => {
+  try {
+    if (typeof on !== 'boolean') {
+      return { success: false, error: 'on must be a boolean' }
+    }
+    const result = await bluetooth.setPower(on)
+    safeLog('info', 'Bluetooth power set', { on, success: result.success })
+    return result
+  } catch (error) {
+    safeLog('error', 'bluetooth-power error', { error: error.message })
+    return { success: false, error: error.message }
   }
 })

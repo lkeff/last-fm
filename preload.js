@@ -958,6 +958,64 @@ contextBridge.exposeInMainWorld('api', {
       check: securityUtils.rateLimiter.check,
       reset: securityUtils.rateLimiter.reset
     }
+  },
+
+  /**
+   * Bluetooth API — manage Bluetooth devices and audio sinks from the renderer.
+   */
+  bluetooth: {
+    /**
+     * Get Bluetooth controller status (powered, discoverable, etc.)
+     * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+     */
+    status: createSecureApiWrapper(
+      'bluetooth-status',
+      null,
+      { rateLimitKey: 'bluetooth-status', maxCalls: 10, windowMs: 60000 }
+    ),
+
+    /**
+     * Scan for paired Bluetooth devices and available audio sinks.
+     * @returns {Promise<{success: boolean, data?: {devices: object[], sinks: object[]}, error?: string}>}
+     */
+    scan: createSecureApiWrapper(
+      'bluetooth-scan',
+      null,
+      { rateLimitKey: 'bluetooth-scan', maxCalls: 5, windowMs: 60000 }
+    ),
+
+    /**
+     * Connect to a Bluetooth device by MAC address (Linux) or InstanceId (Windows).
+     * @param {string} address
+     * @returns {Promise<{success: boolean, error?: string}>}
+     */
+    connect: createSecureApiWrapper(
+      'bluetooth-connect',
+      (address) => typeof address === 'string' && address.length > 0,
+      { rateLimitKey: 'bluetooth-connect', maxCalls: 10, windowMs: 60000 }
+    ),
+
+    /**
+     * Disconnect a Bluetooth device.
+     * @param {string} address
+     * @returns {Promise<{success: boolean, error?: string}>}
+     */
+    disconnect: createSecureApiWrapper(
+      'bluetooth-disconnect',
+      (address) => typeof address === 'string' && address.length > 0,
+      { rateLimitKey: 'bluetooth-disconnect', maxCalls: 10, windowMs: 60000 }
+    ),
+
+    /**
+     * Turn Bluetooth on or off.
+     * @param {boolean} on
+     * @returns {Promise<{success: boolean, error?: string}>}
+     */
+    power: createSecureApiWrapper(
+      'bluetooth-power',
+      (on) => typeof on === 'boolean',
+      { rateLimitKey: 'bluetooth-power', maxCalls: 5, windowMs: 60000, sanitizeArgs: false }
+    )
   }
 });
 
