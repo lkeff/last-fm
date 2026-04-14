@@ -1,0 +1,169 @@
+version: '3.9'
+
+# Brass Stab Finder Docker Compose Configuration
+# Professional audio analysis and brass stab detection service
+# Usage: docker-compose -f docker-compose.brass-stab.yml up -d
+
+services:
+  brass-stab-finder:
+    build:
+      context: .
+      dockerfile: Dockerfile.brass-stab
+      args:
+        NODE_ENV: production
+    container_name: brass-stab-finder-service
+    image: brass-stab-finder:latest
+    restart: always
+    
+    # Environment variables
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      LOG_LEVEL: info
+      AUDIT_ENABLED: 'true'
+      CACHE_ENABLED: 'true'
+      ANALYSIS_TIMEOUT: 60000
+      MAX_FILE_SIZE: 524288000
+    
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    
+    # Temporary filesystems for writable directories
+    tmpfs:
+      - /tmp:mode=1777,size=500m
+      - /app/.npm:mode=0755,size=100m
+    
+    # Persistent volumes for cache, data, and logs
+    volumes:
+      - brass-stab-cache:/app/data/brass-cache
+      - brass-stab-data:/app/data
+      - brass-stab-logs:/app/logs
+      # Mount audio files directory (read-only)
+      - ${AUDIO_FILES_DIR:-/media/audio}:/media/audio:ro
+    
+    # Network configuration
+    networks:
+      - brass-stab-network
+    
+    # Port binding (localhost only for security)
+    ports:
+      - "127.0.0.1:3002:3002"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 2048M
+        reservations:
+          cpus: '2.0'
+          memory: 1024M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+        labels: "brass-stab-finder"
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageID}}|{{.ContainerID}}"
+
+  # Optional: Nginx reverse proxy for HTTPS and load balancing
+  nginx-brass:
+    image: nginx:alpine
+    container_name: brass-stab-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/brass-stab.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-brass-cache:/var/cache/nginx
+    networks:
+      - brass-stab-network
+    depends_on:
+      - brass-stab-finder
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Optional: Prometheus for monitoring
+  prometheus-brass:
+    image: prom/prometheus:latest
+    container_name: brass-stab-prometheus
+    restart: always
+    volumes:
+      - ./monitoring/prometheus-brass.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-brass-data:/prometheus
+    ports:
+      - "127.0.0.1:9091:9090"
+    networks:
+      - brass-stab-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  brass-stab-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.26.0.0/16
+
+volumes:
+  brass-stab-cache:
+    driver: local
+  brass-stab-data:
+    driver: local
+  brass-stab-logs:
+    driver: local
+  nginx-brass-cache:
+    driver: local
+  prometheus-brass-data:
+    driver: local

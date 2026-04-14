@@ -12,6 +12,7 @@
 
 const studioRig = require('./studio-rig')
 const liveRig = require('./live-rig')
+const lightControlRig = require('./light-control-rig')
 const orchestra = require('./orchestra')
 const djBooth = require('./dj-booth')
 const banglaOrchestra = require('./bangla-orchestra')
@@ -23,6 +24,7 @@ const midiEnsemble = require('./midi-ensemble')
 const RIGS = {
   studio: studioRig.STUDIO_RIG,
   live: liveRig.LIVE_RIG,
+  lightControl: lightControlRig.LIGHT_CONTROL_RIG,
   orchestra: orchestra.ORCHESTRA,
   djBooth: djBooth.DJ_BOOTH,
   banglaOrchestra: banglaOrchestra.BANGLA_ORCHESTRA
@@ -67,6 +69,15 @@ function getRigsSummary () {
       crewSize: Object.values(liveRig.LIVE_RIG.crew).reduce((sum, dept) => {
         return sum + Object.values(dept).reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0)
       }, 0)
+    },
+    lightControl: {
+      name: lightControlRig.LIGHT_CONTROL_RIG.name,
+      type: lightControlRig.LIGHT_CONTROL_RIG.type,
+      fixtures: lightControlRig.getFixtureCount(),
+      dmxChannels: lightControlRig.getDmxChannelCount(),
+      protocols: lightControlRig.LIGHT_CONTROL_RIG.dmxProtocol.protocols,
+      securityAudit: lightControlRig.LIGHT_CONTROL_RIG.certification.securityAudit,
+      dockerized: lightControlRig.LIGHT_CONTROL_RIG.certification.dockerized
     },
     orchestra: {
       name: orchestra.ORCHESTRA.name,
@@ -123,6 +134,7 @@ function searchEquipment (query) {
 
   searchObject(RIGS.studio, '', 'studio')
   searchObject(RIGS.live, '', 'live')
+  searchObject(RIGS.lightControl, '', 'lightControl')
   searchObject(RIGS.orchestra, '', 'orchestra')
   searchObject(RIGS.djBooth, '', 'djBooth')
   searchObject(RIGS.banglaOrchestra, '', 'banglaOrchestra')
@@ -182,6 +194,14 @@ function generateManifest () {
         wireless: liveRig.getWirelessCount(),
         inputList: liveRig.generateInputList(),
         power: liveRig.getPowerRequirements()
+      },
+      lightControl: {
+        name: lightControlRig.LIGHT_CONTROL_RIG.name,
+        version: lightControlRig.LIGHT_CONTROL_RIG.version,
+        fixtures: lightControlRig.generateFixtureInventory(),
+        dmxChannels: lightControlRig.getDmxChannelCount(),
+        power: lightControlRig.getPowerRequirements(),
+        security: lightControlRig.getSecurityAuditChecklist()
       },
       orchestra: {
         name: orchestra.ORCHESTRA.name,

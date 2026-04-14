@@ -1,0 +1,73 @@
+# Multi-stage build for Brass Stab Finder Service
+# Professional audio analysis and brass stab detection system
+
+# Stage 1: Builder
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    curl
+
+# Copy package files
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Stage 2: Runtime
+FROM node:18-alpine
+
+LABEL maintainer="Brass Stab Finder Team"
+LABEL description="Professional audio analysis and brass stab detection system"
+LABEL version="1.0.0"
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apk add --no-cache \
+    curl \
+    dumb-init \
+    ca-certificates && \
+    update-ca-certificates
+
+# Create non-root user
+RUN addgroup -g 1001 brassstab && \
+    adduser -D -u 1001 -G brassstab brassstab
+
+# Copy from builder
+COPY --from=builder --chown=brassstab:brassstab /app/node_modules ./node_modules
+
+# Copy application files
+COPY --chown=brassstab:brassstab services ./services
+COPY --chown=brassstab:brassstab package.json ./
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data/brass-cache && \
+    chown -R brassstab:brassstab /app/logs /app/data && \
+    chmod 755 /app/logs /app/data /app/data/brass-cache
+
+# Switch to non-root user
+USER brassstab
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \
+    CMD curl -f http://localhost:3002/health || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["/usr/sbin/dumb-init", "--"]
+
+# Start the brass stab finder service
+CMD ["node", "-e", "const { startBrassStabService } = require('./services/brass-stab-api'); startBrassStabService({ port: process.env.PORT || 3002, logLevel: process.env.LOG_LEVEL || 'info', auditEnabled: process.env.AUDIT_ENABLED !== 'false', cacheEnabled: process.env.CACHE_ENABLED !== 'false', analysisTimeout: parseInt(process.env.ANALYSIS_TIMEOUT) || 60000, maxFileSize: parseInt(process.env.MAX_FILE_SIZE) || 524288000 }).catch(err => { console.error('Failed to start service:', err); process.exit(1); });"]
+
+# Expose ports
+EXPOSE 3002
+
+# Security: Set read-only filesystem (handled by docker-compose)
+# Security: Drop all capabilities (handled by docker-compose)
+# Security: No new privileges (handled by docker-compose)

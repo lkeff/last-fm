@@ -33,7 +33,12 @@
       "Bash(powershell -Command \"docker ps 2>&1\" 2>&1)",
       "Bash(cd:*)",
       "Bash(powershell -Command \"Stop-Process -Name 'Docker Desktop','com.docker.backend','com.docker.build' -Force -ErrorAction SilentlyContinue; wsl --shutdown 2>&1; Start-Sleep 5; Start-Process 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe'; Write-Output 'Restarted'\" 2>&1)",
-      "Bash(dir /b \"C:\\\\Users\\\\Administrator\\\\Documents\\\\GitHub\\\\last-fm\")"
+      "Bash(dir /b \"C:\\\\Users\\\\Administrator\\\\Documents\\\\GitHub\\\\last-fm\")",
+      "Bash(node -e \":*)",
+      "Bash(docker build:*)",
+      "Bash(wait:*)",
+      "Bash(docker buildx:*)",
+      "Bash(docker run:*)"
     ]
   }
 }
