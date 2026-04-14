@@ -1,0 +1,74 @@
+# Multi-stage build for Light Control Service
+# Professional DMX512/Art-Net/sACN lighting control system
+
+# Stage 1: Builder
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    curl
+
+# Copy package files
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Stage 2: Runtime
+FROM node:18-alpine
+
+LABEL maintainer="Light Control Team"
+LABEL description="Professional DMX512/Art-Net/sACN lighting control system"
+LABEL version="1.0.0"
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apk add --no-cache \
+    curl \
+    dumb-init \
+    ca-certificates && \
+    update-ca-certificates
+
+# Create non-root user
+RUN addgroup -g 1000 lightcontrol && \
+    adduser -D -u 1000 -G lightcontrol lightcontrol
+
+# Copy from builder
+COPY --from=builder --chown=lightcontrol:lightcontrol /app/node_modules ./node_modules
+
+# Copy application files
+COPY --chown=lightcontrol:lightcontrol rigs ./rigs
+COPY --chown=lightcontrol:lightcontrol services ./services
+COPY --chown=lightcontrol:lightcontrol package.json ./
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data && \
+    chown -R lightcontrol:lightcontrol /app/logs /app/data && \
+    chmod 755 /app/logs /app/data
+
+# Switch to non-root user
+USER lightcontrol
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["/usr/sbin/dumb-init", "--"]
+
+# Start the light control service
+CMD ["node", "-e", "const LightControlService = require('./services/light-control-service'); const service = new LightControlService({ port: process.env.PORT || 3001, universes: parseInt(process.env.UNIVERSES) || 8, enableArtNet: process.env.ENABLE_ARTNET !== 'false', enableSACN: process.env.ENABLE_SACN !== 'false', enableRDM: process.env.ENABLE_RDM !== 'false', logLevel: process.env.LOG_LEVEL || 'info' }); service.start().catch(err => { console.error('Failed to start service:', err); process.exit(1); });"]
+
+# Expose ports
+EXPOSE 3001 6454/udp 5568/udp
+
+# Security: Set read-only filesystem (handled by docker-compose)
+# Security: Drop all capabilities (handled by docker-compose)
+# Security: No new privileges (handled by docker-compose)
