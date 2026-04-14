@@ -6,13 +6,8 @@ version: '3.9'
 
 services:
   light-control:
-    build:
-      context: .
-      dockerfile: Dockerfile.light-control
-      args:
-        NODE_ENV: production
+    image: light-control:1.0.0
     container_name: light-control-service
-    image: light-control:latest
     restart: always
     
     # Environment variables

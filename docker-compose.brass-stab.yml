@@ -6,13 +6,8 @@ version: '3.9'
 
 services:
   brass-stab-finder:
-    build:
-      context: .
-      dockerfile: Dockerfile.brass-stab
-      args:
-        NODE_ENV: production
+    image: brass-stab-finder:1.0.0
     container_name: brass-stab-finder-service
-    image: brass-stab-finder:latest
     restart: always
     
     # Environment variables
