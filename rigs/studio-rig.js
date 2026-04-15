@@ -706,6 +706,42 @@ const STUDIO_RIG = {
             formats: ['LTC', 'MTC', 'VITC'],
             generator: 'Horita TRG-50'
         }
+    },
+
+    /**
+     * Video Capture Profiles
+     */
+    videoCapture: {
+        primaryCamera: {
+            manufacturer: 'Canon',
+            model: 'EOS 5D Mark IV',
+            role: 'Studio documentation and performance capture',
+            stillPhoto: {
+                maxResolution: '6720x4480',
+                megapixels: 30.4,
+                aspectRatios: ['3:2', '4:3', '16:9', '1:1']
+            },
+            video: {
+                dci4k: {
+                    resolution: '4096x2160',
+                    maxFps: 30,
+                    colorSampling: 'Motion JPEG 8-bit'
+                },
+                fullHD: {
+                    resolution: '1920x1080',
+                    maxFps: 60
+                },
+                hd: {
+                    resolution: '1280x720',
+                    maxFps: 120
+                }
+            },
+            studioIntegration: {
+                timecodeSync: 'External LTC via sync bridge',
+                outputPath: 'Video assets archived with session metadata',
+                recommendedDelivery: ['4K master', '1080p social edit', 'thumbnail stills']
+            }
+        }
     }
 }
 
