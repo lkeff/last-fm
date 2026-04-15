@@ -982,6 +982,21 @@ app.get('/api/spotify/search', async (req, res) => {
   }
 });
 
+// Video Capture Profile Endpoint - NEW FEATURE
+app.get('/api/studio/video-capture', (req, res) => {
+  try {
+    const studioRig = getStudioRig();
+    const videoCapture = studioRig.videoCapture || {};
+
+    res.json({
+      videoCapture,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({

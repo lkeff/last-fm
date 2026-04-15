@@ -147,6 +147,7 @@ GET /api/studio/rig                   # Complete studio rig
 GET /api/studio/chains                 # Effects chains
 GET /api/studio/midi                  # MIDI controllers
 GET /api/studio/cables                 # Monster Cable inventory
+GET /api/studio/video-capture          # Canon EOS video capture profile
 ```
 
 ### **Production Health Checks**
