@@ -6,6 +6,7 @@ const { authenticateLastFm, getSessionKey } = require('./lastfmAuth')
 const LastfmScrobbler = require('./lastfmScrobbler')
 const LastfmDataProcessor = require('../utils/lastfmDataProcessor')
 const { startRetentionSchedule } = require('../utils/retention')
+const { auditHddVolumes, writeAuditReport } = require('../utils/hdd-security')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -165,4 +166,9 @@ app.listen(PORT, () => {
     logsDir
   })
   console.log(`[retention] scheduled — TTL ${process.env.RETENTION_DAYS || 19} days, data=${dataDir}, logs=${logsDir}`)
+
+  // HDD security audit on startup (non-blocking; strict=false so server still starts on ACL warn)
+  auditHddVolumes([dataDir, logsDir], { strict: false })
+    .then(results => writeAuditReport(results, dataDir))
+    .catch(err => console.warn('[hdd-security] startup audit error:', err.message))
 })
