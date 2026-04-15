@@ -3,15 +3,27 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:3002}"
 
-echo "[1/5] Checking /health"
+echo "[1/6] Checking /health"
 health_code=$(curl -sS -o /tmp/lastfm-health.json -w '%{http_code}' "$BASE_URL/health")
 [[ "$health_code" == "200" ]] || { echo "health failed: $health_code"; exit 1; }
 
-echo "[2/5] Checking /api/studio/rig"
+echo "[2/6] Checking /api/studio/rig"
 rig_code=$(curl -sS -o /tmp/lastfm-rig.json -w '%{http_code}' "$BASE_URL/api/studio/rig")
 [[ "$rig_code" == "200" ]] || { echo "studio rig failed: $rig_code"; exit 1; }
 
-echo "[3/5] Generating WAV fixture"
+echo "[3/6] Checking /api/studio/video-capture"
+video_capture_code=$(curl -sS -o /tmp/lastfm-video-capture.json -w '%{http_code}' "$BASE_URL/api/studio/video-capture")
+[[ "$video_capture_code" == "200" ]] || { echo "video capture failed: $video_capture_code"; exit 1; }
+python3 - <<'PY'
+import json
+with open('/tmp/lastfm-video-capture.json', 'r', encoding='utf-8') as f:
+    payload = json.load(f)
+model = payload.get('videoCapture', {}).get('primaryCamera', {}).get('model')
+if model != 'EOS 5D Mark IV':
+    raise SystemExit(f'unexpected camera model: {model!r}')
+PY
+
+echo "[4/6] Generating WAV fixture"
 python3 - <<'PY'
 import math, wave, struct
 sr=44100
@@ -27,7 +39,7 @@ with wave.open('/tmp/lastfm-smoke.wav','wb') as w:
         w.writeframesraw(struct.pack('<hh', s, s))
 PY
 
-echo "[4/5] Checking /api/audio/process"
+echo "[5/6] Checking /api/audio/process"
 audio_code=$(curl -sS -o /tmp/lastfm-audio-out.wav -w '%{http_code}' -X POST "$BASE_URL/api/audio/process" \
   -F 'audio=@/tmp/lastfm-smoke.wav;type=audio/wav' \
   -F 'pedals=[]' \
@@ -39,7 +51,7 @@ if [[ ! -s /tmp/lastfm-audio-out.wav ]]; then
   exit 1
 fi
 
-echo "[5/5] Checking /api/audio/process-chunk"
+echo "[6/6] Checking /api/audio/process-chunk"
 python3 - <<'PY' >/tmp/lastfm-chunk-input.json
 import base64, struct, json
 pcm=b''.join(struct.pack('<hh',0,0) for _ in range(256))
@@ -62,6 +74,7 @@ chunk_code=$(curl -sS -o /tmp/lastfm-chunk.json -w '%{http_code}' \
 echo "Smoke test passed"
 echo "- /health: $health_code"
 echo "- /api/studio/rig: $rig_code"
+echo "- /api/studio/video-capture: $video_capture_code"
 echo "- /api/audio/process: $audio_code"
 echo "- /api/audio/process-chunk: $chunk_code"
 echo "- output bytes: $(wc -c </tmp/lastfm-audio-out.wav)"
