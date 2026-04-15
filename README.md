@@ -22,6 +22,7 @@ A cross-platform desktop application built with [Electron](https://www.electronj
 - [Security Features](#security-features)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [API Documentation](#api-documentation)
   - [Security Configuration](#security-configuration)
 - [Running the App](#running-the-app)
 - [UI Overview](#ui-overview)
@@ -151,6 +152,11 @@ BLOCK_SUSPICIOUS_DOMAINS=true
 ```
 
 > **Warning:** Misconfiguration of these settings can weaken defenses or impact performance. Review settings for development vs production.
+
+## API Documentation
+
+- Full API reference: [`docs/api.md`](docs/api.md)
+- Includes health, core music, studio, and audio processing endpoints.
 
 ---
 
