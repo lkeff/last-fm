@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD022 MD031 MD032 MD034 MD040 MD058 MD060 -->
+
 # Production Deployment Summary - Last.fm Desktop
 
 **Date**: February 9, 2026  
