@@ -16,6 +16,9 @@ services:
       FREESOUND_API_KEY: ${FREESOUND_API_KEY:-}
       PORT: ${PORT:-3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATA_DIR: /app/data
+      LOGS_DIR: /app/logs
+      RETENTION_DAYS: ${RETENTION_DAYS:-19}
     # SECURITY: Hardening options
     security_opt:
       - no-new-privileges:true
@@ -28,8 +31,8 @@ services:
       - /tmp
       - /app/.npm
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - hdd-data:/app/data
+      - hdd-logs:/app/logs
     networks:
       - app-network
     # SECURITY: Bind to localhost only (use reverse proxy for external access)
@@ -76,6 +79,20 @@ services:
     command: node test/ramdac.test.js
     profiles:
       - test
+
+volumes:
+  hdd-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: E:\GitHub\last-fm\data
+  hdd-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: E:\GitHub\last-fm\logs
 
 networks:
   app-network:
