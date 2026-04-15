@@ -16,6 +16,9 @@ services:
       FREESOUND_API_KEY: ${FREESOUND_API_KEY:-}
       PORT: ${PORT:-3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATA_DIR: /app/data
+      LOGS_DIR: /app/logs
+      RETENTION_DAYS: ${RETENTION_DAYS:-19}
     # SECURITY: Hardening options
     security_opt:
       - no-new-privileges:true
@@ -28,20 +31,20 @@ services:
       - /tmp
       - /app/.npm
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - hdd-data:/app/data
+      - hdd-logs:/app/logs
     networks:
       - app-network
     # SECURITY: Bind to localhost only (use reverse proxy for external access)
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
-      test: ["CMD", "node", "-e", "console.log('healthy')"]
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/lastfm/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 5s
-    # SECURITY: Resource limits
+    command: pnpm start:server
     deploy:
       resources:
         limits:
@@ -62,6 +65,34 @@ services:
             - logs
         - action: rebuild
           path: ./package.json
+
+  ramdac-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ramdac-test
+    image: last-fm:latest
+    environment:
+      NODE_ENV: test
+    networks:
+      - app-network
+    command: node test/ramdac.test.js
+    profiles:
+      - test
+
+volumes:
+  hdd-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: E:\GitHub\last-fm\data
+  hdd-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: E:\GitHub\last-fm\logs
 
 networks:
   app-network:

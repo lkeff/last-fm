@@ -10,11 +10,19 @@
     "axios": "^1.4.0",
     "dotenv": "^16.3.1",
     "run-parallel": "^1.1.10",
-    "simple-get": "^4.0.0"
+    "simple-get": "^4.0.0",
+    "open": "^8.4.0",
+    "@tensorflow/tfjs-node": "3.18.0",
+    "open": "^8.4.0",
+    "@tensorflow/tfjs-node": "3.18.0",
+    "grpc": "1.24.11",
+    "express": "^4.18.2",
+    "yauzl": "^2.10.0"
   },
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "start:bot": "node bot.js",
-    "start:node": "node get_top_music.js"
+    "start:node": "node get_top_music.js",
+    "start:server": "node services/server.js"
   }
 }
