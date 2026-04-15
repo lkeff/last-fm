@@ -6,6 +6,15 @@
  * @module rigs/studio-rig
  */
 
+'use strict'
+
+const zlib = require('zlib')
+const { promisify } = require('util')
+const { unpack } = require('../utils/zip-unpack')
+const { RAMDAC } = require('../utils/ramdac')
+
+const gzip = promisify(zlib.gzip)
+
 const STUDIO_RIG = {
   name: 'Professional Studio Rig',
   version: '1.0.0',
@@ -740,10 +749,73 @@ function getSignalFlow () {
   }
 }
 
+/**
+ * Export a rig snapshot as a gzip-compressed JSON Buffer.
+ * The snapshot can be loaded back with loadRigSnapshot().
+ *
+ * @param {object} [rigOverride]  Custom rig object (defaults to STUDIO_RIG)
+ * @returns {Promise<Buffer>}     Gzip-compressed snapshot
+ */
+async function exportRigSnapshot (rigOverride) {
+  const rig = rigOverride || STUDIO_RIG
+  const json = Buffer.from(JSON.stringify(rig, null, 2))
+  return gzip(json)
+}
+
+/**
+ * Load a rig snapshot from a gzip-compressed Buffer using RAMDAC.
+ * The optional morph function transforms the parsed rig object before it is
+ * atomically committed, enabling zero-cut live rig swaps.
+ *
+ * @param {Buffer}   snapshotBuffer  Gzip-compressed rig JSON
+ * @param {object}   [opts]
+ * @param {function} [opts.morph]    (rigObject) => rigObject — mutate before commit
+ * @returns {Promise<object>}        Committed rig object
+ */
+async function loadRigSnapshot (snapshotBuffer, opts = {}) {
+  const ramdac = new RAMDAC({ id: 'rig-snapshot' })
+
+  await ramdac.load(snapshotBuffer, 'gzip')
+
+  ramdac.morphWith(buf => {
+    const parsed = JSON.parse(buf.toString('utf8'))
+    return opts.morph ? opts.morph(parsed) : parsed
+  })
+
+  ramdac.commit()
+  return ramdac.read()
+}
+
+/**
+ * Import a rig from a .zip bundle containing a single rig JSON entry.
+ * Uses RAMDAC double-buffering so the live rig is only replaced once the
+ * entire zip is extracted and the snapshot is atomically committed.
+ *
+ * @param {Buffer|string} zipSource  Buffer or absolute path to .zip archive
+ * @param {object}        [opts]
+ * @param {function}      [opts.morph]  (rigObject) => rigObject
+ * @returns {Promise<object>}         Committed rig object
+ */
+async function importRigFromZip (zipSource, opts = {}) {
+  const entries = await unpack(zipSource, {
+    filter: name => /\.json$/i.test(name)
+  })
+
+  const first = [...entries.values()][0]
+  if (!first) throw new Error('importRigFromZip: no JSON entry found in zip archive')
+
+  const raw = first.read()
+  const parsed = JSON.parse(raw.toString('utf8'))
+  return opts.morph ? opts.morph(parsed) : parsed
+}
+
 module.exports = {
   STUDIO_RIG,
   getStudioRig,
   getStudioSection,
   getEquipmentCount,
-  getSignalFlow
+  getSignalFlow,
+  exportRigSnapshot,
+  loadRigSnapshot,
+  importRigFromZip
 }

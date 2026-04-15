@@ -2,6 +2,7 @@
 const get = require('simple-get')
 const querystring = require('querystring')
 const parallel = require('run-parallel')
+const { RAMDAC } = require('./utils/ramdac')
 
 // Simple in-memory TTL cache for API responses
 class TTLCache {
@@ -942,6 +943,52 @@ class LastFM {
       cb(null, { result: albums })
     })
   }
+}
+
+/**
+ * Execute multiple LastFM API calls in parallel and atomically commit all
+ * results into a RAMDAC front-buffer before returning.
+ *
+ * This prevents callers from observing a partially-completed batch (cuts);
+ * they receive all results only after every request has resolved.
+ *
+ * @param {Array<{method: string, opts: object}>} calls  e.g. [{method:'artistInfo', opts:{...}}]
+ * @returns {Promise<Map<string, *>>}  Map of method name → result
+ */
+LastFM.prototype.batchRequest = function batchRequest (calls) {
+  const self = this
+  const ramdac = new RAMDAC({ id: 'api-batch' })
+
+  return new Promise((resolve, reject) => {
+    const tasks = calls.map(({ method, opts }) => {
+      return (done) => {
+        if (typeof self[method] !== 'function') {
+          return done(new Error(`LastFM.batchRequest: unknown method '${method}'`))
+        }
+        self[method](opts || {}, (err, result) => done(null, { method, err, result }))
+      }
+    })
+
+    parallel(tasks, async (_, outcomes) => {
+      const payload = Buffer.from(JSON.stringify(outcomes))
+
+      try {
+        await ramdac.loadAndCommit(payload, {
+          format: 'raw',
+          morph: buf => JSON.parse(buf.toString('utf8'))
+        })
+      } catch (commitErr) {
+        return reject(commitErr)
+      }
+
+      const committed = ramdac.read()
+      const resultMap = new Map()
+      for (const { method, err, result } of committed) {
+        resultMap.set(method, err ? { error: err.message } : result)
+      }
+      resolve(resultMap)
+    })
+  })
 }
 
 module.exports = LastFM
