@@ -3,15 +3,15 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:3002}"
 
-echo "[1/6] Checking /health"
+echo "[1/7] Checking /health"
 health_code=$(curl -sS -o /tmp/lastfm-health.json -w '%{http_code}' "$BASE_URL/health")
 [[ "$health_code" == "200" ]] || { echo "health failed: $health_code"; exit 1; }
 
-echo "[2/6] Checking /api/studio/rig"
+echo "[2/7] Checking /api/studio/rig"
 rig_code=$(curl -sS -o /tmp/lastfm-rig.json -w '%{http_code}' "$BASE_URL/api/studio/rig")
 [[ "$rig_code" == "200" ]] || { echo "studio rig failed: $rig_code"; exit 1; }
 
-echo "[3/6] Checking /api/studio/video-capture"
+echo "[3/7] Checking /api/studio/video-capture"
 video_capture_code=$(curl -sS -o /tmp/lastfm-video-capture.json -w '%{http_code}' "$BASE_URL/api/studio/video-capture")
 [[ "$video_capture_code" == "200" ]] || { echo "video capture failed: $video_capture_code"; exit 1; }
 python3 - <<'PY'
@@ -23,7 +23,13 @@ if model != 'EOS 5D Mark IV':
     raise SystemExit(f'unexpected camera model: {model!r}')
 PY
 
-echo "[4/6] Generating WAV fixture"
+echo "[4/7] Checking /api/lastfm/stream (zip-aware endpoint contract)"
+stream_no_url=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/lastfm/stream")
+[[ "$stream_no_url" == "400" ]] || { echo "stream missing-url expected 400, got: $stream_no_url"; exit 1; }
+stream_bad_host=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/lastfm/stream?url=https%3A%2F%2Fevil.com%2Faudio.mp3")
+[[ "$stream_bad_host" == "403" ]] || { echo "stream bad-host expected 403, got: $stream_bad_host"; exit 1; }
+
+echo "[5/7] Generating WAV fixture"
 python3 - <<'PY'
 import math, wave, struct
 sr=44100
@@ -39,7 +45,7 @@ with wave.open('/tmp/lastfm-smoke.wav','wb') as w:
         w.writeframesraw(struct.pack('<hh', s, s))
 PY
 
-echo "[5/6] Checking /api/audio/process"
+echo "[6/7] Checking /api/audio/process"
 audio_code=$(curl -sS -o /tmp/lastfm-audio-out.wav -w '%{http_code}' -X POST "$BASE_URL/api/audio/process" \
   -F 'audio=@/tmp/lastfm-smoke.wav;type=audio/wav' \
   -F 'pedals=[]' \
@@ -51,7 +57,7 @@ if [[ ! -s /tmp/lastfm-audio-out.wav ]]; then
   exit 1
 fi
 
-echo "[6/6] Checking /api/audio/process-chunk"
+echo "[7/7] Checking /api/audio/process-chunk"
 python3 - <<'PY' >/tmp/lastfm-chunk-input.json
 import base64, struct, json
 pcm=b''.join(struct.pack('<hh',0,0) for _ in range(256))
@@ -75,6 +81,8 @@ echo "Smoke test passed"
 echo "- /health: $health_code"
 echo "- /api/studio/rig: $rig_code"
 echo "- /api/studio/video-capture: $video_capture_code"
+echo "- /api/lastfm/stream (no-url): $stream_no_url"
+echo "- /api/lastfm/stream (bad-host): $stream_bad_host"
 echo "- /api/audio/process: $audio_code"
 echo "- /api/audio/process-chunk: $chunk_code"
 echo "- output bytes: $(wc -c </tmp/lastfm-audio-out.wav)"

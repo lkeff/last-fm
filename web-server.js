@@ -15,7 +15,8 @@ const NodeCache = require('node-cache');
 const { getStudioRig, getEquipmentCount } = require('./rigs/studio-rig.js');
 const { getAllChains, getRoutingDiagram } = require('./rigs/effects-chain-manager.js');
 const { spawnSync } = require('child_process');
-const { decodeWavBuffer, encodeWavBuffer, pcm16leToFloat32Channels, float32ChannelsToPcm16le } = require('./utils/audio-dsp/wav.js');
+const { decodeWavBuffer, encodeWavBuffer, pcm16leToFloat32Channels, float32ChannelsToPcm16le } = require('./utils/audio-dsp/wav.js')
+const { pipeDecompressed } = require('./utils/zip-stream.js');
 const { processAudio, createAudioProcessor } = require('./utils/audio-dsp/pedalboard.js');
 
 const app = express();
@@ -194,6 +195,14 @@ app.get('/', (req, res) => {
         </div>
 
         <div class="search-section">
+            <h2>🎵 Last.fm Track Stream (Zip-Aware)</h2>
+            <input type="text" id="lastfmStreamUrl" placeholder="Paste a last.fm audio URL" style="width:60%;margin-right:8px">
+            <button onclick="playLastFmStream()">Play</button>
+            <div id="lastfmStreamStatus" style="margin-top:8px"></div>
+            <audio id="lastfmAudio" controls style="margin-top:8px;width:100%;display:none"></audio>
+        </div>
+        
+        <div class="search-section">
             <h2>📁 Local Brass Samples</h2>
             <button onclick="getLocalSamples()">Load Local Samples</button>
             <div style="margin: 10px 0;">
@@ -282,6 +291,21 @@ app.get('/', (req, res) => {
                     });
             }
             
+            function playLastFmStream() {
+                const url = document.getElementById('lastfmStreamUrl').value.trim();
+                const status = document.getElementById('lastfmStreamStatus');
+                const audio = document.getElementById('lastfmAudio');
+                if (!url) { status.innerHTML = '<p style="color:red">Please enter a URL</p>'; return; }
+                const proxyUrl = '/api/lastfm/stream?url=' + encodeURIComponent(url);
+                status.innerHTML = '<p>Loading stream (decompressing if needed)...</p>';
+                audio.src = proxyUrl;
+                audio.style.display = 'block';
+                audio.load();
+                audio.oncanplay = function() { status.innerHTML = '<p style="color:green">Stream ready</p>'; };
+                audio.onerror = function() { status.innerHTML = '<p style="color:red">Stream error — check URL or server logs</p>'; };
+                audio.play().catch(() => {});
+            }
+
             function uploadAudio() {
                 const fileInput = document.getElementById('audioFile');
                 const file = fileInput.files[0];
@@ -996,6 +1020,60 @@ app.get('/api/studio/video-capture', (req, res) => {
     res.json({ error: error.message });
   }
 });
+
+// Last.fm zip-aware audio stream proxy
+app.get('/api/lastfm/stream', async (req, res) => {
+  const trackUrl = req.query.url
+  if (!trackUrl) {
+    return res.status(400).json({ error: 'url query param required' })
+  }
+
+  let parsed
+  try {
+    parsed = new URL(trackUrl)
+  } catch (_) {
+    return res.status(400).json({ error: 'invalid url' })
+  }
+
+  const allowedHosts = ['www.last.fm', 'last.fm', 'ws.audioscrobbler.com', 'cdn.last.fm']
+  if (!allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith('.' + h))) {
+    return res.status(403).json({ error: 'only last.fm URLs are permitted' })
+  }
+
+  try {
+    const response = await axios.get(trackUrl, {
+      responseType: 'stream',
+      headers: {
+        'User-Agent': 'LastFM-Desktop/1.0',
+        Accept: 'audio/*, application/zip, application/octet-stream'
+      },
+      validateStatus: status => status < 500
+    })
+
+    if (response.status !== 200) {
+      return res.status(response.status).json({ error: 'upstream returned ' + response.status })
+    }
+
+    const contentEncoding = response.headers['content-encoding'] || ''
+    const contentType = response.headers['content-type'] || 'audio/mpeg'
+    const audioType = contentType.split(';')[0].trim()
+
+    res.setHeader('Content-Type', /^audio\//.test(audioType) ? audioType : 'audio/mpeg')
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('X-Zip-Aware', 'true')
+
+    const decompressed = pipeDecompressed(response.data, contentEncoding)
+    decompressed.on('error', err => {
+      console.error('[zip-stream] decompression error:', err.message)
+      if (!res.headersSent) res.status(500).json({ error: err.message })
+      else res.destroy()
+    })
+    decompressed.pipe(res)
+  } catch (error) {
+    console.error('[lastfm/stream] error:', error.message)
+    if (!res.headersSent) res.status(500).json({ error: error.message })
+  }
+})
 
 // Health check endpoint
 app.get('/health', (req, res) => {
