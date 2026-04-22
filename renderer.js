@@ -1,8 +1,9 @@
 // Renderer process for Brass Stabs Electron App
 // Handles UI interactions and communicates with main process via preload APIs
+/* global Audio */
 
 class BrassStabsApp {
-  constructor() {
+  constructor () {
     this.currentSearchType = 'lastfm'
     this.searchCache = new Map()
     this.isLoading = false
@@ -27,7 +28,7 @@ class BrassStabsApp {
     this.init()
   }
 
-  async init() {
+  async init () {
     try {
       this.setupEventListeners()
       this.setupSearchDebouncing()
@@ -45,7 +46,7 @@ class BrassStabsApp {
     }
   }
 
-  setupEventListeners() {
+  setupEventListeners () {
     // Search form submissions with security validation
     const lastfmForm = document.getElementById('lastfm-search-form')
     const localBrassForm = document.getElementById('local-brass-search-form')
@@ -116,7 +117,7 @@ class BrassStabsApp {
     this.setupActivityTracking()
   }
 
-  setupSearchDebouncing() {
+  setupSearchDebouncing () {
     // Create debounced search functions for real-time search with security validation
     this.debouncedLastFmSearch = window.api.utils.debounce(
       (query) => this.performSecureSearch('lastfm', query),
@@ -156,7 +157,7 @@ class BrassStabsApp {
   /**
    * Setup comprehensive security features
    */
-  setupSecurityFeatures() {
+  setupSecurityFeatures () {
     this.createLockScreenOverlay()
     this.setupSessionStateMonitoring()
     this.setupMemoryProtection()
@@ -171,7 +172,7 @@ class BrassStabsApp {
   /**
    * Setup activity tracking for AFK guard
    */
-  setupActivityTracking() {
+  setupActivityTracking () {
     this.securityConfig.activityEvents.forEach(eventType => {
       document.addEventListener(eventType, () => {
         this.reportUserActivity(eventType)
@@ -195,7 +196,7 @@ class BrassStabsApp {
    * Report user activity to AFK guard system
    * @param {string} activityType - Type of activity
    */
-  async reportUserActivity(activityType) {
+  async reportUserActivity (activityType) {
     if (this.isSessionLocked) return
 
     try {
@@ -218,7 +219,7 @@ class BrassStabsApp {
   /**
    * Initialize AFK guard functionality
    */
-  async initializeAFKGuard() {
+  async initializeAFKGuard () {
     try {
       // Check initial session status
       const statusResult = await window.api.afkGuard.checkLockStatus()
@@ -251,7 +252,7 @@ class BrassStabsApp {
   /**
    * Create lock screen overlay
    */
-  createLockScreenOverlay() {
+  createLockScreenOverlay () {
     this.lockScreenElement = document.createElement('div')
     this.lockScreenElement.id = 'afk-lock-screen'
     this.lockScreenElement.className = 'afk-lock-screen hidden'
@@ -279,7 +280,7 @@ class BrassStabsApp {
   /**
    * Handle session lock
    */
-  async handleSessionLock() {
+  async handleSessionLock () {
     if (this.isSessionLocked) return
 
     this.isSessionLocked = true
@@ -306,7 +307,7 @@ class BrassStabsApp {
   /**
    * Handle session unlock
    */
-  async handleSessionUnlock() {
+  async handleSessionUnlock () {
     if (!this.isSessionLocked) return
 
     try {
@@ -331,7 +332,7 @@ class BrassStabsApp {
   /**
    * Request session unlock
    */
-  async requestSessionUnlock() {
+  async requestSessionUnlock () {
     try {
       const result = await window.api.afkGuard.requestUnlock({
         method: 'click',
@@ -352,7 +353,7 @@ class BrassStabsApp {
   /**
    * Blank sensitive data during session lock
    */
-  async blankSensitiveData() {
+  async blankSensitiveData () {
     try {
       // Find and backup sensitive elements
       this.securityConfig.sensitiveSelectors.forEach(selector => {
@@ -412,7 +413,7 @@ class BrassStabsApp {
   /**
    * Restore sensitive data after session unlock
    */
-  async restoreSensitiveData() {
+  async restoreSensitiveData () {
     try {
       // Restore backed up content
       for (const [elementId, backup] of this.sensitiveDataBackup.entries()) {
@@ -442,7 +443,7 @@ class BrassStabsApp {
   /**
    * Clear memory cache for security
    */
-  clearMemoryCache() {
+  clearMemoryCache () {
     try {
       // Clear search cache
       this.searchCache.clear()
@@ -470,7 +471,7 @@ class BrassStabsApp {
   /**
    * Disable interactive elements during session lock
    */
-  disableInteractiveElements() {
+  disableInteractiveElements () {
     const interactiveElements = document.querySelectorAll('button, input, select, textarea, a')
     interactiveElements.forEach(element => {
       if (element.id !== 'unlock-session-btn') {
@@ -483,7 +484,7 @@ class BrassStabsApp {
   /**
    * Enable interactive elements after session unlock
    */
-  enableInteractiveElements() {
+  enableInteractiveElements () {
     const interactiveElements = document.querySelectorAll('.session-locked')
     interactiveElements.forEach(element => {
       element.disabled = false
@@ -494,7 +495,7 @@ class BrassStabsApp {
   /**
    * Setup session state monitoring
    */
-  setupSessionStateMonitoring() {
+  setupSessionStateMonitoring () {
     // Monitor for session state changes
     setInterval(async () => {
       if (window.api && window.api.afkGuard) {
@@ -520,7 +521,7 @@ class BrassStabsApp {
   /**
    * Setup memory protection
    */
-  setupMemoryProtection() {
+  setupMemoryProtection () {
     // Periodic memory cleanup
     setInterval(() => {
       if (!this.isSessionLocked) {
@@ -538,7 +539,7 @@ class BrassStabsApp {
   /**
    * Clean up memory periodically
    */
-  cleanupMemory() {
+  cleanupMemory () {
     try {
       // Remove old cache entries
       const now = Date.now()
@@ -567,7 +568,7 @@ class BrassStabsApp {
   /**
    * Clear sensitive variables from memory
    */
-  clearSensitiveVariables() {
+  clearSensitiveVariables () {
     try {
       // Clear any sensitive data from instance variables
       this.selectedFiles = []
@@ -586,7 +587,7 @@ class BrassStabsApp {
   /**
    * Setup secure error handling
    */
-  setupSecureErrorHandling() {
+  setupSecureErrorHandling () {
     // Override console methods to use secure logging
     const originalConsoleError = console.error
     const originalConsoleWarn = console.warn
@@ -609,7 +610,7 @@ class BrassStabsApp {
   /**
    * Handle secure search with enhanced validation
    */
-  async handleSecureSearch(event, searchType) {
+  async handleSecureSearch (event, searchType) {
     event.preventDefault()
 
     if (this.isSessionLocked) {
@@ -640,14 +641,14 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async handleSearch(event, searchType) {
+  async handleSearch (event, searchType) {
     return this.handleSecureSearch(event, searchType)
   }
 
   /**
    * Perform secure search with enhanced validation and sanitization
    */
-  async performSecureSearch(searchType, query) {
+  async performSecureSearch (searchType, query) {
     if (this.isLoading || this.isSessionLocked) return
 
     try {
@@ -724,14 +725,14 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async performSearch(searchType, query) {
+  async performSearch (searchType, query) {
     return this.performSecureSearch(searchType, query)
   }
 
   /**
    * Display results with comprehensive security measures
    */
-  async displaySecureResults(searchType, data, query) {
+  async displaySecureResults (searchType, data, query) {
     const resultsContainer = document.getElementById(`${searchType}-results`)
     if (!resultsContainer) return
 
@@ -772,14 +773,14 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async displayResults(searchType, data, query) {
+  async displayResults (searchType, data, query) {
     return this.displaySecureResults(searchType, data, query)
   }
 
   /**
    * Display Last.fm results with comprehensive security measures
    */
-  async displaySecureLastFmResults(container, data) {
+  async displaySecureLastFmResults (container, data) {
     if (!data.result) {
       container.innerHTML = '<div class="no-results"><p>No Last.fm results found</p></div>'
       return
@@ -888,14 +889,14 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async displayLastFmResults(container, data) {
+  async displayLastFmResults (container, data) {
     return this.displaySecureLastFmResults(container, data)
   }
 
   /**
    * Display brass results with comprehensive security measures
    */
-  async displaySecureBrassResults(container, data, source) {
+  async displaySecureBrassResults (container, data, source) {
     try {
       // Handle both old format (array) and new format (object with results and normalization)
       let samples, normalization
@@ -988,14 +989,14 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async displayBrassResults(container, data, source) {
+  async displayBrassResults (container, data, source) {
     return this.displaySecureBrassResults(container, data, source)
   }
 
   /**
    * Setup secure result action listeners with comprehensive validation
    */
-  setupSecureResultActionListeners(container) {
+  setupSecureResultActionListeners (container) {
     try {
       // Preview buttons with URL validation
       const playButtons = container.querySelectorAll('.play-preview-btn')
@@ -1068,7 +1069,7 @@ class BrassStabsApp {
   /**
    * Setup secure external link listeners
    */
-  setupSecureExternalLinkListeners(container) {
+  setupSecureExternalLinkListeners (container) {
     const externalLinks = container.querySelectorAll('.external-link')
     externalLinks.forEach(link => {
       link.addEventListener('click', async (e) => {
@@ -1088,14 +1089,14 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  setupResultActionListeners(container) {
+  setupResultActionListeners (container) {
     return this.setupSecureResultActionListeners(container)
   }
 
   /**
    * Play audio preview with security validation
    */
-  async playSecurePreview(url, button) {
+  async playSecurePreview (url, button) {
     try {
       if (this.isSessionLocked) {
         this.showNotification('Session is locked', 'warning')
@@ -1162,14 +1163,14 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async playPreview(url, button) {
+  async playPreview (url, button) {
     return this.playSecurePreview(url, button)
   }
 
   /**
    * Add sample to library with comprehensive security validation
    */
-  async addSecureSampleToLibrary(sampleData, button) {
+  async addSecureSampleToLibrary (sampleData, button) {
     try {
       if (this.isSessionLocked) {
         this.showNotification('Session is locked', 'warning')
@@ -1228,14 +1229,14 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async addSampleToLibrary(sampleData, button) {
+  async addSampleToLibrary (sampleData, button) {
     return this.addSecureSampleToLibrary(sampleData, button)
   }
 
   /**
    * Open file with security validation
    */
-  async openSecureFile(filePath) {
+  async openSecureFile (filePath) {
     try {
       if (this.isSessionLocked) {
         this.showNotification('Session is locked', 'warning')
@@ -1268,21 +1269,21 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async openFile(filePath) {
+  async openFile (filePath) {
     return this.openSecureFile(filePath)
   }
 
   /**
    * Handle audio transcription
    */
-  async handleTranscription(filePath, button) {
+  async handleTranscription (filePath, button) {
+    const originalText = button.textContent
     try {
       if (this.isSessionLocked) {
         this.showNotification('Session is locked', 'warning')
         return
       }
 
-      const originalText = button.textContent
       button.textContent = '⏳ Transcribing...'
       button.disabled = true
 
@@ -1318,7 +1319,7 @@ class BrassStabsApp {
   /**
    * Show transcription result in a modal
    */
-  showTranscriptionModal(content, title = 'Transcription Result') {
+  showTranscriptionModal (content, title = 'Transcription Result') {
     let modal = document.getElementById('transcription-modal')
 
     if (!modal) {
@@ -1373,7 +1374,7 @@ class BrassStabsApp {
   /**
    * Open external link with security validation
    */
-  async openSecureExternalLink(url) {
+  async openSecureExternalLink (url) {
     try {
       if (this.isSessionLocked) {
         this.showNotification('Session is locked', 'warning')
@@ -1399,7 +1400,7 @@ class BrassStabsApp {
     }
   }
 
-  async selectBrassFiles() {
+  async selectBrassFiles () {
     try {
       this.setLoadingState('file-selection', true)
 
@@ -1417,7 +1418,7 @@ class BrassStabsApp {
     }
   }
 
-  displaySelectedFiles() {
+  displaySelectedFiles () {
     const container = document.getElementById('selected-files')
     if (!container) return
 
@@ -1446,12 +1447,12 @@ class BrassStabsApp {
     container.innerHTML = html
   }
 
-  removeSelectedFile(index) {
+  removeSelectedFile (index) {
     this.selectedFiles.splice(index, 1)
     this.displaySelectedFiles()
   }
 
-  async transcribeSelectedFile(index, button) {
+  async transcribeSelectedFile (index, button) {
     const file = this.selectedFiles[index]
     if (file && file.path) {
       await this.handleTranscription(file.path, button)
@@ -1461,7 +1462,7 @@ class BrassStabsApp {
   /**
    * Handle secure sample addition with comprehensive validation
    */
-  async handleSecureAddSample(event) {
+  async handleSecureAddSample (event) {
     event.preventDefault()
 
     if (this.isSessionLocked) {
@@ -1550,11 +1551,11 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  async handleAddSample(event) {
+  async handleAddSample (event) {
     return this.handleSecureAddSample(event)
   }
 
-  async loadFiddleTemplates() {
+  async loadFiddleTemplates () {
     try {
       const result = await window.api.getFiddleTemplates()
 
@@ -1569,7 +1570,7 @@ class BrassStabsApp {
     }
   }
 
-  displayFiddleTemplates() {
+  displayFiddleTemplates () {
     const container = document.getElementById('fiddle-templates')
     if (!container) return
 
@@ -1602,7 +1603,7 @@ class BrassStabsApp {
     })
   }
 
-  async openSelectedFiddle() {
+  async openSelectedFiddle () {
     const selectedTemplate = document.querySelector('input[name="fiddle-template"]:checked')
     if (!selectedTemplate) {
       this.showError('Please select a fiddle template')
@@ -1618,10 +1619,10 @@ class BrassStabsApp {
     await this.openFiddle(template)
   }
 
-  async openFiddle(template, button = null) {
+  async openFiddle (template, button = null) {
     try {
       if (button) {
-        const originalText = button.textContent
+        const _originalText = button.textContent // eslint-disable-line no-unused-vars
         button.textContent = 'Opening...'
         button.disabled = true
       }
@@ -1650,7 +1651,7 @@ class BrassStabsApp {
     }
   }
 
-  switchTab(tabName) {
+  switchTab (tabName) {
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content')
     tabContents.forEach(content => content.classList.remove('active'))
@@ -1677,7 +1678,7 @@ class BrassStabsApp {
   /**
    * Validate search input with comprehensive security checks
    */
-  validateSecureSearchInput(input) {
+  validateSecureSearchInput (input) {
     try {
       this.reportUserActivity('input-validation')
 
@@ -1714,11 +1715,11 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  validateSearchInput(input) {
+  validateSearchInput (input) {
     return this.validateSecureSearchInput(input)
   }
 
-  setLoadingState(type, isLoading) {
+  setLoadingState (type, isLoading) {
     this.isLoading = isLoading
 
     // Update loading indicators
@@ -1743,7 +1744,7 @@ class BrassStabsApp {
   /**
    * Securely clear results with memory protection
    */
-  secureClearResults(type) {
+  secureClearResults (type) {
     try {
       this.reportUserActivity('clear-results')
 
@@ -1779,11 +1780,11 @@ class BrassStabsApp {
   /**
    * Legacy method for backward compatibility
    */
-  clearResults(type) {
+  clearResults (type) {
     return this.secureClearResults(type)
   }
 
-  showNotification(message, type = 'info') {
+  showNotification (message, type = 'info') {
     const notification = document.createElement('div')
     notification.className = `notification notification-${type}`
     notification.textContent = message
@@ -1802,7 +1803,7 @@ class BrassStabsApp {
   /**
    * Show error with secure logging and sanitization
    */
-  async showError(message, error = null) {
+  async showError (message, error = null) {
     try {
       // Sanitize error message to prevent information disclosure
       const sanitizedMessage = await this.sanitizeInput(message)
@@ -1836,7 +1837,7 @@ class BrassStabsApp {
     }
   }
 
-  clearError() {
+  clearError () {
     const errorDisplay = document.getElementById('error-display')
     if (errorDisplay) {
       errorDisplay.style.display = 'none'
@@ -1850,7 +1851,7 @@ class BrassStabsApp {
    * @param {Object} normalizationMeta - Normalization metadata with ranges
    * @returns {string} HTML string with normalized value visualizations
    */
-  renderNormalizedMetrics(item, fields, normalizationMeta) {
+  renderNormalizedMetrics (item, fields, normalizationMeta) {
     if (!item || !fields || !normalizationMeta) {
       return ''
     }
@@ -1891,7 +1892,7 @@ class BrassStabsApp {
    * @param {Object} normalizationData - Normalization metadata for different result types
    * @returns {string} HTML string with normalization legend
    */
-  renderNormalizationLegend(normalizationData) {
+  renderNormalizationLegend (normalizationData) {
     let html = '<div class="normalization-legend">'
     html += '<div class="legend-header">'
     html += '<h4>📊 Normalized Scores</h4>'
@@ -1948,7 +1949,7 @@ class BrassStabsApp {
    * @param {number} percentage - Normalized percentage (0-100)
    * @returns {string} CSS class name
    */
-  getNormalizedValueColorClass(percentage) {
+  getNormalizedValueColorClass (percentage) {
     if (percentage >= 67) return 'high-value'
     if (percentage >= 34) return 'medium-value'
     return 'low-value'
@@ -1959,7 +1960,7 @@ class BrassStabsApp {
    * @param {number} percentage - Normalized percentage (0-100)
    * @returns {string} Label text
    */
-  getNormalizedValueLabel(percentage) {
+  getNormalizedValueLabel (percentage) {
     if (percentage >= 67) return 'High'
     if (percentage >= 34) return 'Medium'
     return 'Low'
@@ -1973,7 +1974,7 @@ class BrassStabsApp {
    * @param {Object} fieldMeta - Field metadata with min/max ranges
    * @returns {string} Tooltip text
    */
-  createNormalizationTooltip(field, originalValue, normalizedValue, fieldMeta) {
+  createNormalizationTooltip (field, originalValue, normalizedValue, fieldMeta) {
     const formattedOriginal = this.formatFieldValue(field, originalValue)
     const formattedMin = this.formatFieldValue(field, fieldMeta.min)
     const formattedMax = this.formatFieldValue(field, fieldMeta.max)
@@ -1986,7 +1987,7 @@ class BrassStabsApp {
    * @param {string} field - Raw field name
    * @returns {string} Formatted field name
    */
-  formatFieldName(field) {
+  formatFieldName (field) {
     const fieldNames = {
       listeners: 'Listeners',
       playcount: 'Play Count',
@@ -2003,7 +2004,7 @@ class BrassStabsApp {
    * @param {*} value - Value to format
    * @returns {string} Formatted value
    */
-  formatFieldValue(field, value) {
+  formatFieldValue (field, value) {
     if (typeof value !== 'number' || isNaN(value)) {
       return 'N/A'
     }
@@ -2027,7 +2028,7 @@ class BrassStabsApp {
    * @param {string} type - Raw type name
    * @returns {string} Formatted type name
    */
-  formatResultType(type) {
+  formatResultType (type) {
     const typeNames = {
       artist: 'Artists',
       track: 'Tracks',
@@ -2038,7 +2039,7 @@ class BrassStabsApp {
     return typeNames[type] || type.charAt(0).toUpperCase() + type.slice(1)
   }
 
-  getResultCount(data) {
+  getResultCount (data) {
     if (Array.isArray(data)) {
       return data.length
     }
@@ -2062,7 +2063,7 @@ class BrassStabsApp {
   /**
    * Secure logging wrapper
    */
-  async secureLog(level, message, data = null) {
+  async secureLog (level, message, data = null) {
     try {
       if (window.api && window.api.secureLog) {
         const sanitizedData = data ? this.sanitizeLogData(data) : null
@@ -2084,7 +2085,7 @@ class BrassStabsApp {
   /**
    * Sanitize HTML content using API or fallback
    */
-  async sanitizeHtml(htmlString) {
+  async sanitizeHtml (htmlString) {
     try {
       if (window.api && window.api.security && window.api.security.sanitizeHtml) {
         const result = await window.api.security.sanitizeHtml(htmlString)
@@ -2101,7 +2102,7 @@ class BrassStabsApp {
   /**
    * Fallback HTML escaping
    */
-  fallbackEscapeHtml(string) {
+  fallbackEscapeHtml (string) {
     if (typeof string !== 'string') return ''
 
     const htmlEscapes = {
@@ -2119,7 +2120,7 @@ class BrassStabsApp {
   /**
    * Sanitize input with comprehensive validation
    */
-  async sanitizeInput(input) {
+  async sanitizeInput (input) {
     if (typeof input !== 'string') return ''
 
     try {
@@ -2139,7 +2140,7 @@ class BrassStabsApp {
   /**
    * Fallback input sanitization
    */
-  fallbackSanitizeInput(input) {
+  fallbackSanitizeInput (input) {
     if (typeof input !== 'string') return ''
 
     // Remove dangerous patterns
@@ -2162,7 +2163,7 @@ class BrassStabsApp {
   /**
    * Validate query for security issues
    */
-  validateSecureQuery(query) {
+  validateSecureQuery (query) {
     if (typeof query !== 'string') return false
 
     try {
@@ -2182,7 +2183,7 @@ class BrassStabsApp {
   /**
    * Fallback query validation
    */
-  fallbackValidateQuery(query) {
+  fallbackValidateQuery (query) {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       return false
     }
@@ -2204,7 +2205,7 @@ class BrassStabsApp {
   /**
    * Validate URLs for security
    */
-  async validateExternalUrl(url) {
+  async validateExternalUrl (url) {
     try {
       if (window.api && window.api.security && window.api.security.validateUrl) {
         const result = await window.api.security.validateUrl(url)
@@ -2221,7 +2222,7 @@ class BrassStabsApp {
   /**
    * Fallback URL validation
    */
-  fallbackValidateUrl(url) {
+  fallbackValidateUrl (url) {
     if (!url || typeof url !== 'string') return false
 
     try {
@@ -2242,7 +2243,7 @@ class BrassStabsApp {
   /**
    * Validate audio URLs
    */
-  async validateAudioUrl(url) {
+  async validateAudioUrl (url) {
     if (!await this.validateExternalUrl(url)) return false
 
     try {
@@ -2257,7 +2258,7 @@ class BrassStabsApp {
   /**
    * Validate file paths
    */
-  async validateFilePath(filePath) {
+  async validateFilePath (filePath) {
     if (!filePath || typeof filePath !== 'string') return false
 
     // Check for path traversal and dangerous patterns
@@ -2274,7 +2275,7 @@ class BrassStabsApp {
   /**
    * Validate sample data
    */
-  async validateSampleData(sampleData) {
+  async validateSampleData (sampleData) {
     if (!sampleData || typeof sampleData !== 'object') return false
 
     return sampleData.name &&
@@ -2286,7 +2287,7 @@ class BrassStabsApp {
   /**
    * Validate sample name
    */
-  validateSampleName(name) {
+  validateSampleName (name) {
     if (!name || typeof name !== 'string') return false
 
     const dangerousPatterns = [
@@ -2303,7 +2304,7 @@ class BrassStabsApp {
   /**
    * Validate selected file
    */
-  async validateSelectedFile(file) {
+  async validateSelectedFile (file) {
     if (!file || typeof file !== 'object') return false
 
     const allowedExtensions = ['.wav', '.mp3', '.aiff', '.flac', '.ogg']
@@ -2318,7 +2319,7 @@ class BrassStabsApp {
   /**
    * Sanitize URLs
    */
-  async sanitizeUrl(url) {
+  async sanitizeUrl (url) {
     if (!url || typeof url !== 'string') return ''
 
     try {
@@ -2332,7 +2333,7 @@ class BrassStabsApp {
   /**
    * Sanitize numbers
    */
-  sanitizeNumber(value) {
+  sanitizeNumber (value) {
     if (typeof value === 'number' && !isNaN(value)) {
       return value
     }
@@ -2346,7 +2347,7 @@ class BrassStabsApp {
   /**
    * Sanitize search results
    */
-  async sanitizeSearchResults(results) {
+  async sanitizeSearchResults (results) {
     if (!Array.isArray(results)) return results
 
     try {
@@ -2366,7 +2367,7 @@ class BrassStabsApp {
   /**
    * Sanitize individual result item
    */
-  async sanitizeResultItem(item) {
+  async sanitizeResultItem (item) {
     if (!item || typeof item !== 'object') return item
 
     const sanitized = { ...item }
@@ -2392,7 +2393,7 @@ class BrassStabsApp {
   /**
    * Sanitize sample data for JSON embedding
    */
-  async sanitizeSampleDataForJson(sample) {
+  async sanitizeSampleDataForJson (sample) {
     const sanitized = await this.sanitizeResultItem(sample)
     return JSON.stringify(sanitized).replace(/[<>]/g, '')
   }
@@ -2400,7 +2401,7 @@ class BrassStabsApp {
   /**
    * Hash sensitive data for logging
    */
-  hashSensitiveData(data) {
+  hashSensitiveData (data) {
     if (!data) return ''
 
     try {
@@ -2421,21 +2422,21 @@ class BrassStabsApp {
   /**
    * Hash URLs for logging
    */
-  hashUrl(url) {
+  hashUrl (url) {
     return this.hashSensitiveData(url)
   }
 
   /**
    * Hash queries for caching
    */
-  hashQuery(query) {
+  hashQuery (query) {
     return this.hashSensitiveData(query)
   }
 
   /**
    * Sanitize log data
    */
-  sanitizeLogData(data) {
+  sanitizeLogData (data) {
     try {
       if (window.api && window.api.securityUtils && window.api.securityUtils.sanitizeForLogging) {
         return window.api.securityUtils.sanitizeForLogging(data)
@@ -2450,7 +2451,7 @@ class BrassStabsApp {
   /**
    * Fallback log data sanitization
    */
-  fallbackSanitizeLogData(data) {
+  fallbackSanitizeLogData (data) {
     if (typeof data === 'string') {
       const sensitivePatterns = [
         /api[_-]?key/i,
@@ -2485,7 +2486,7 @@ class BrassStabsApp {
   /**
    * Sanitize error messages
    */
-  sanitizeErrorMessage(error) {
+  sanitizeErrorMessage (error) {
     if (!error) return 'Unknown error'
 
     const message = error.message || error.toString() || 'Unknown error'
@@ -2511,7 +2512,7 @@ class BrassStabsApp {
   /**
    * Create secure external link
    */
-  async createSecureExternalLink(url, text) {
+  async createSecureExternalLink (url, text) {
     if (!url) return ''
 
     const sanitizedUrl = await this.sanitizeUrl(url)
@@ -2527,7 +2528,7 @@ class BrassStabsApp {
   /**
    * Render secure normalized metrics
    */
-  async renderSecureNormalizedMetrics(item, fields, normalizationMeta) {
+  async renderSecureNormalizedMetrics (item, fields, normalizationMeta) {
     try {
       const originalMetrics = this.renderNormalizedMetrics(item, fields, normalizationMeta)
       return await this.sanitizeHtml(originalMetrics)
@@ -2540,7 +2541,7 @@ class BrassStabsApp {
   /**
    * Render secure normalization legend
    */
-  async renderSecureNormalizationLegend(normalizationData) {
+  async renderSecureNormalizationLegend (normalizationData) {
     try {
       const originalLegend = this.renderNormalizationLegend(normalizationData)
       return await this.sanitizeHtml(originalLegend)
@@ -2553,7 +2554,7 @@ class BrassStabsApp {
   /**
    * Securely empty container
    */
-  securelyEmptyContainer(container) {
+  securelyEmptyContainer (container) {
     try {
       // Remove event listeners to prevent memory leaks
       const elements = container.querySelectorAll('*')
@@ -2573,7 +2574,7 @@ class BrassStabsApp {
   /**
    * Secure form reset
    */
-  secureFormReset(form) {
+  secureFormReset (form) {
     try {
       // Clear sensitive data before reset
       const sensitiveInputs = form.querySelectorAll('input[type="password"], input[data-sensitive]')
@@ -2591,7 +2592,7 @@ class BrassStabsApp {
   /**
    * Clear type-specific sensitive data
    */
-  clearTypeSpecificSensitiveData(type) {
+  clearTypeSpecificSensitiveData (type) {
     try {
       // Clear any type-specific caches or data
       if (type === 'lastfm') {
@@ -2607,7 +2608,7 @@ class BrassStabsApp {
   /**
    * Refresh local search if needed
    */
-  async refreshLocalSearchIfNeeded() {
+  async refreshLocalSearchIfNeeded () {
     try {
       const localResults = document.getElementById('local-brass-results')
       if (localResults && localResults.children.length > 0) {
@@ -2624,7 +2625,7 @@ class BrassStabsApp {
   /**
    * Show security warning
    */
-  showSecurityWarning(element, message) {
+  showSecurityWarning (element, message) {
     try {
       let warningElement = element.parentNode.querySelector('.security-warning')
       if (!warningElement) {
@@ -2642,7 +2643,7 @@ class BrassStabsApp {
   /**
    * Clear security warning
    */
-  clearSecurityWarning(element) {
+  clearSecurityWarning (element) {
     try {
       const warningElement = element.parentNode.querySelector('.security-warning')
       if (warningElement) {

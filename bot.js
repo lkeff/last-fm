@@ -33,7 +33,7 @@ const menuActions = {
   }
 }
 
-function showMenu() {
+function showMenu () {
   rl.question('\nEnter your choice: ', (choice) => {
     const action = menuActions[choice]
     if (action) {
@@ -46,7 +46,7 @@ function showMenu() {
 
 const LIMIT = 5
 // Search for an artist
-function searchArtist() {
+function searchArtist () {
   rl.question('Enter artist name to search: ', (query) => {
     lastfm.artistSearch({ q: query, limit: LIMIT }, (err, data) => {
       if (err) {
@@ -61,7 +61,7 @@ function searchArtist() {
 }
 
 // Get artist info
-function getArtistInfo() {
+function getArtistInfo () {
   rl.question('Enter artist name: ', (name) => {
     lastfm.artistInfo({ name }, (err, artist) => {
       if (err) {
@@ -71,10 +71,12 @@ function getArtistInfo() {
       }
 
       if (artist.summary) {
+        // summary intentionally not displayed in CLI output
       }
 
       if (artist.similar && artist.similar.length > 0) {
-        artist.similar.slice(0, LIMIT).forEach((similar, index) => {
+        artist.similar.slice(0, LIMIT).forEach((_similar, _index) => {
+          // similar artists listed but not printed in this CLI mode
         })
       }
 
@@ -86,7 +88,7 @@ function getArtistInfo() {
 const TOP_TRACKS_LIMIT = 10
 const TOP_ARTISTS_LIMIT = 10
 // Get top tracks for an artist
-function getArtistTopTracks() {
+function getArtistTopTracks () {
   rl.question('Enter artist name: ', (name) => {
     lastfm.artistTopTracks({ name, limit: TOP_TRACKS_LIMIT }, (err, data) => {
       if (err) {
@@ -104,7 +106,7 @@ function getArtistTopTracks() {
 }
 
 // Search for a track
-function searchTrack() {
+function searchTrack () {
   rl.question('Enter track name to search: ', (query) => {
     lastfm.trackSearch({ q: query, limit: LIMIT }, (err, data) => {
       if (err) {
@@ -119,12 +121,13 @@ function searchTrack() {
 }
 
 // Get chart top artists
-function getChartTopArtists() {
+function getChartTopArtists () {
   lastfm.chartTopArtists({ limit: TOP_ARTISTS_LIMIT }, (err, data) => {
     if (err) {
       console.error('Error:', err.message)
     } else {
-      data.result.forEach((artist, index) => {
+      data.result.forEach((_artist, _index) => {
+        // artist results available but not rendered in this CLI mode
       })
     }
     showMenu()
@@ -132,6 +135,7 @@ function getChartTopArtists() {
 }
 
 if (API_KEY === 'YOUR_LAST_FM_API_KEY') {
+  // placeholder key detected; real API calls will fail until a valid key is set
 }
 
 showMenu()

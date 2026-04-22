@@ -1,4 +1,5 @@
-const { app, BrowserWindow } = require('electron')
+/* eslint-disable no-unused-vars */
+const { app, BrowserWindow: _BrowserWindow } = require('electron')
 
 console.log('app:', app)
 console.log('app.whenReady:', typeof app.whenReady)

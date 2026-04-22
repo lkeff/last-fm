@@ -1,12 +1,12 @@
-const electron = require('electron');
-const { app, BrowserWindow } = electron;
+const electron = require('electron')
+const { app, BrowserWindow } = electron
 
-console.log('Electron version:', process.versions.electron);
-console.log('Node version:', process.versions.node);
-console.log('app object:', app);
+console.log('Electron version:', process.versions.electron)
+console.log('Node version:', process.versions.node)
+console.log('app object:', app)
 
-function createWindow() {
-  console.log('Creating window...');
+function createWindow () {
+  console.log('Creating window...')
   const win = new BrowserWindow({
     width: 800,
     height: 600,
@@ -14,25 +14,25 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false
     }
-  });
+  })
 
-  win.loadFile('index.html');
-  console.log('Window created successfully');
+  win.loadFile('index.html')
+  console.log('Window created successfully')
 }
 
 app.whenReady().then(() => {
-  console.log('App is ready');
-  createWindow();
+  console.log('App is ready')
+  createWindow()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createWindow()
     }
-  });
-});
+  })
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit();
+    app.quit()
   }
-});
+})

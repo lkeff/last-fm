@@ -1,23 +1,23 @@
 const { fft, ifft } = require('fft-js')
 
-function nextPow2(n) {
+function nextPow2 (n) {
   let p = 1
   while (p < n) p <<= 1
   return p
 }
 
-function complexMul(a, b) {
+function complexMul (a, b) {
   return [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]
 }
 
-function padReal(arr, n) {
+function padReal (arr, n) {
   const out = new Array(n)
   for (let i = 0; i < n; i++) out[i] = i < arr.length ? arr[i] : 0
   return out
 }
 
 class FIRConvolver {
-  constructor({ ir, blockSize }) {
+  constructor ({ ir, blockSize }) {
     if (!ir || ir.length === 0) throw new Error('IR is required')
     this.ir = ir
     this.blockSize = blockSize || 1024
@@ -27,7 +27,7 @@ class FIRConvolver {
     this.overlap = new Float32Array(this.fftSize)
   }
 
-  processBlock(input) {
+  processBlock (input) {
     if (input.length !== this.blockSize) throw new Error('Input block must match blockSize')
 
     const X = fft(padReal(input, this.fftSize))
@@ -52,14 +52,14 @@ class FIRConvolver {
     return out
   }
 
-  flushTail() {
+  flushTail () {
     const tail = this.overlap.slice(0)
     this.overlap.fill(0)
     return tail
   }
 }
 
-function convolveStream({ input, ir, blockSize }) {
+function convolveStream ({ input, ir, blockSize }) {
   const conv = new FIRConvolver({ ir, blockSize })
   const out = []
   for (let i = 0; i < input.length; i += blockSize) {

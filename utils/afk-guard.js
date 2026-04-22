@@ -1,3 +1,4 @@
+/* global sessionStorage */
 const { EventEmitter } = require('events')
 const { ipcMain } = require('electron')
 
@@ -9,8 +10,13 @@ const { ipcMain } = require('electron')
 
 const TEN_MINUTES = 10 * 60 * 1000
 const TWO_MINUTES = 2 * 60 * 1000
+const DEBOUNCE_TIME = 100
+const ONE_HUNDRED_MILLISECONDS = 100
+const THREE_HUNDRED_MILLISECONDS = 300
+const TWO_THOUSAND_MILLISECONDS = 2000
+const RANDOM_STRING_LENGTH = 9
 class ActivityTracker extends EventEmitter {
-  constructor(options = {}) {
+  constructor (options = {}) {
     super()
     this.timeout = options.timeout || parseInt(process.env.AFK_TIMEOUT_MINUTES) * 60 * 1000 || TEN_MINUTES // 10 minutes default
     this.warningTime = options.warningTime || parseInt(process.env.AFK_WARNING_MINUTES) * 60 * 1000 || TWO_MINUTES // 2 minutes default
@@ -34,7 +40,7 @@ class ActivityTracker extends EventEmitter {
      * Start monitoring user activity
      * @param {Object} options - Configuration options
      */
-  startTracking(options = {}) {
+  startTracking (options = {}) {
     if (!this.enabled || this.isTracking) return
 
     // Merge options
@@ -61,7 +67,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Set up event listeners for renderer process
      */
-  setupRendererListeners() {
+  setupRendererListeners () {
     const events = this.getActivityEvents()
 
     events.forEach(event => {
@@ -82,7 +88,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Set up event listeners for main process
      */
-  setupMainProcessListeners() {
+  setupMainProcessListeners () {
     // System-level activity detection would require native modules
     // For now, rely on renderer process reporting
     if (ipcMain) {
@@ -94,7 +100,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Get activity events based on sensitivity level
      */
-  getActivityEvents() {
+  getActivityEvents () {
     const baseEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart']
 
     switch (this.sensitivity) {
@@ -110,9 +116,8 @@ class ActivityTracker extends EventEmitter {
   /**
      * Set up audio activity monitoring
      */
-  setupAudioMonitoring() {
+  setupAudioMonitoring () {
     const AUDIO_CHECK_INTERVAL = 5000
-    const DEBOUNCE_TIME = 100
     // Monitor audio elements for playback activity
     const audioElements = document.querySelectorAll('audio, video')
     audioElements.forEach(element => {
@@ -128,7 +133,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Handle user activity events
      */
-  handleActivity(event) {
+  handleActivity (event) {
     if (!this.isTracking) {
       return
     }
@@ -155,7 +160,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Handle visibility change events
      */
-  handleVisibilityChange() {
+  handleVisibilityChange () {
     if (document.hidden) {
       // Page is hidden, reduce activity sensitivity
       this.emit('visibility-hidden')
@@ -169,7 +174,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Handle focus change events
      */
-  handleFocusChange(event) {
+  handleFocusChange (event) {
     const isFocused = event.type === 'focus' || !document.hidden
 
     if (isFocused) {
@@ -182,7 +187,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Check for audio activity
      */
-  checkAudioActivity() {
+  checkAudioActivity () {
     const audioElements = document.querySelectorAll('audio, video')
     let hasActiveAudio = false
 
@@ -200,7 +205,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Reset the inactivity timer
      */
-  resetTimer() {
+  resetTimer () {
     if (!this.isTracking) return
 
     // Clear existing timers
@@ -228,7 +233,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Stop activity tracking
      */
-  stopTracking() {
+  stopTracking () {
     if (!this.isTracking) {
       return
     }
@@ -253,7 +258,7 @@ class ActivityTracker extends EventEmitter {
     this.emit('tracking-stopped')
   }
 
-  removeRendererListeners() {
+  removeRendererListeners () {
     this.activityEvents.forEach(event => {
       document.removeEventListener(event, this.handleActivity)
     })
@@ -270,7 +275,7 @@ class ActivityTracker extends EventEmitter {
     })
   }
 
-  removeMainProcessListeners() {
+  removeMainProcessListeners () {
     ipcMain.removeListener('user-activity', this.handleActivity)
     ipcMain.removeListener('app-focus-change', this.handleFocusChange)
   }
@@ -278,7 +283,7 @@ class ActivityTracker extends EventEmitter {
   /**
      * Get current activity status
      */
-  getStatus() {
+  getStatus () {
     return {
       isTracking: this.isTracking,
       lastActivity: this.lastActivity,
@@ -291,7 +296,7 @@ class ActivityTracker extends EventEmitter {
 }
 
 class SessionManager extends EventEmitter {
-  constructor(options = {}) {
+  constructor (options = {}) {
     super()
     this.unlockMethod = options.unlockMethod || process.env.AFK_UNLOCK_METHOD || 'click' // click, password, os
     this.isLocked = false
@@ -306,7 +311,7 @@ class SessionManager extends EventEmitter {
   /**
      * Lock the session
      */
-  lockSession() {
+  lockSession () {
     if (this.isLocked) return
 
     this.isLocked = true
@@ -332,7 +337,7 @@ class SessionManager extends EventEmitter {
   /**
      * Unlock the session
      */
-  async unlockSession(credentials = null) {
+  async unlockSession (credentials = null) {
     if (!this.isLocked) return true
 
     // Validate unlock attempt based on method
@@ -370,14 +375,14 @@ class SessionManager extends EventEmitter {
   /**
      * Check if session is currently locked
      */
-  isSessionLocked() {
+  isSessionLocked () {
     return this.isLocked
   }
 
   /**
      * Validate unlock attempt
      */
-  async validateUnlock(credentials) {
+  async validateUnlock (credentials) {
     switch (this.unlockMethod) {
       case 'click':
         return true // Simple click to unlock
@@ -398,7 +403,7 @@ class SessionManager extends EventEmitter {
   /**
      * Get stored password (placeholder)
      */
-  getStoredPassword() {
+  getStoredPassword () {
     // In a real implementation, this would securely retrieve the password
     return process.env.AFK_UNLOCK_PASSWORD || 'default'
   }
@@ -406,7 +411,7 @@ class SessionManager extends EventEmitter {
   /**
      * Validate OS authentication (placeholder)
      */
-  validateOSAuth() {
+  validateOSAuth () {
     // In a real implementation, this would use OS-level authentication
     // For now, return true as placeholder
     return true
@@ -415,7 +420,7 @@ class SessionManager extends EventEmitter {
   /**
      * Blank sensitive data from DOM
      */
-  blankSensitiveData() {
+  blankSensitiveData () {
     if (typeof window === 'undefined') return
 
     const sensitiveSelectors = [
@@ -460,11 +465,11 @@ class SessionManager extends EventEmitter {
   /**
      * Restore sensitive data to DOM
      */
-  restoreSensitiveData() {
+  restoreSensitiveData () {
     if (typeof window === 'undefined') return
 
     this.sensitiveDataBackup.forEach((backup, id) => {
-      const { element, originalContent, originalValue, originalText } = backup
+      const { element, originalContent, originalValue, originalText: _originalText } = backup // eslint-disable-line no-unused-vars
 
       if (element && element.parentNode) {
         if (element.tagName === 'INPUT') {
@@ -489,11 +494,7 @@ class SessionManager extends EventEmitter {
   /**
      * Clear memory cache
      */
-  clearMemoryCache() {
-    const ONE_HUNDRED_MILLISECONDS = 100
-    const THREE_HUNDRED_MILLISECONDS = 300
-    const TWO_THOUSAND_MILLISECONDS = 2000
-    const RANDOM_STRING_LENGTH = 9
+  clearMemoryCache () {
     // Clear various caches
     this.memoryCache.clear()
 
@@ -524,7 +525,7 @@ class SessionManager extends EventEmitter {
   /**
      * Show lock screen
      */
-  showLockScreen() {
+  showLockScreen () {
     if (typeof window === 'undefined') return
 
     // Create lock screen overlay if it doesn't exist
@@ -547,7 +548,7 @@ class SessionManager extends EventEmitter {
   /**
      * Hide lock screen
      */
-  hideLockScreen() {
+  hideLockScreen () {
     if (typeof window === 'undefined') return
 
     const lockScreen = document.getElementById('afk-lock-screen')
@@ -562,7 +563,7 @@ class SessionManager extends EventEmitter {
   /**
      * Create lock screen element
      */
-  createLockScreen() {
+  createLockScreen () {
     const lockScreen = document.createElement('div')
     lockScreen.id = 'afk-lock-screen'
     lockScreen.className = 'afk-lock-screen'
@@ -617,7 +618,7 @@ class SessionManager extends EventEmitter {
   /**
      * Handle unlock attempt
      */
-  async handleUnlockAttempt(credentials = null) {
+  async handleUnlockAttempt (credentials = null) {
     if (this.unlockMethod === 'password' && !credentials) {
       const passwordInput = document.querySelector('.afk-unlock-input')
       credentials = { password: passwordInput ? passwordInput.value : '' }
@@ -640,14 +641,14 @@ class SessionManager extends EventEmitter {
   /**
      * Generate unique ID for DOM element
      */
-  generateElementId(element) {
+  generateElementId (element) {
     return `afk_${element.tagName}_${element.className}_${Date.now()}_${Math.random().toString(36).substr(2, RANDOM_STRING_LENGTH)}`
   }
 
   /**
      * Get session status
      */
-  getStatus() {
+  getStatus () {
     return {
       isLocked: this.isLocked,
       lockTime: this.lockTime,
@@ -662,7 +663,7 @@ class SessionManager extends EventEmitter {
  * Main AFK Guard class that coordinates activity tracking and session management
  */
 class AFKGuard extends EventEmitter {
-  constructor(options = {}) {
+  constructor (options = {}) {
     super()
 
     this.activityTracker = new ActivityTracker(options.activity)
@@ -676,7 +677,7 @@ class AFKGuard extends EventEmitter {
   /**
      * Set up event forwarding between components
      */
-  setupEventForwarding() {
+  setupEventForwarding () {
     // Forward activity tracker events
     this.activityTracker.on('inactivity-timeout', () => {
       if (this.enabled) {
@@ -713,7 +714,7 @@ class AFKGuard extends EventEmitter {
   /**
      * Start AFK guard protection
      */
-  start(options = {}) {
+  start (options = {}) {
     if (!this.enabled) return
 
     this.activityTracker.startTracking(options.activity)
@@ -723,7 +724,7 @@ class AFKGuard extends EventEmitter {
   /**
      * Stop AFK guard protection
      */
-  stop() {
+  stop () {
     this.activityTracker.stopTracking()
     if (this.sessionManager.isSessionLocked()) {
       this.sessionManager.unlockSession()
@@ -734,7 +735,7 @@ class AFKGuard extends EventEmitter {
   /**
      * Get comprehensive status
      */
-  getStatus() {
+  getStatus () {
     return {
       enabled: this.enabled,
       activity: this.activityTracker.getStatus(),
@@ -745,7 +746,7 @@ class AFKGuard extends EventEmitter {
   /**
      * Configure AFK guard settings
      */
-  configure(options = {}) {
+  configure (options = {}) {
     if (options.activity) {
       Object.assign(this.activityTracker, options.activity)
     }

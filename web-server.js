@@ -1,26 +1,26 @@
 // Load environment variables from .env file
-require('dotenv/config');
-const express = require('express');
-const path = require('path');
-const LastFM = require('./index.js');
-const axios = require('axios');
-const fs = require('fs');
-const multer = require('multer');
-const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
-const cors = require('cors');
-const compression = require('compression');
-const morgan = require('morgan');
-const NodeCache = require('node-cache');
-const { getStudioRig, getEquipmentCount } = require('./rigs/studio-rig.js');
-const { getAllChains, getRoutingDiagram } = require('./rigs/effects-chain-manager.js');
-const { spawnSync } = require('child_process');
+require('dotenv/config')
+const express = require('express')
+const path = require('path')
+const LastFM = require('./index.js')
+const axios = require('axios')
+const fs = require('fs')
+const multer = require('multer')
+const rateLimit = require('express-rate-limit')
+const helmet = require('helmet')
+const cors = require('cors')
+const compression = require('compression')
+const morgan = require('morgan')
+const NodeCache = require('node-cache')
+const { getStudioRig, getEquipmentCount } = require('./rigs/studio-rig.js')
+const { getAllChains, getRoutingDiagram } = require('./rigs/effects-chain-manager.js')
+const { spawnSync } = require('child_process')
 const { decodeWavBuffer, encodeWavBuffer, pcm16leToFloat32Channels, float32ChannelsToPcm16le } = require('./utils/audio-dsp/wav.js')
-const { pipeDecompressed } = require('./utils/zip-stream.js');
-const { processAudio, createAudioProcessor } = require('./utils/audio-dsp/pedalboard.js');
+const { pipeDecompressed } = require('./utils/zip-stream.js')
+const { processAudio, createAudioProcessor } = require('./utils/audio-dsp/pedalboard.js')
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const app = express()
+const PORT = process.env.PORT || 3000
 
 // Middleware - Security and Performance
 app.use(helmet({
@@ -29,27 +29,27 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      mediaSrc: ["'self'", "https:", "https://p.scdn.co"],
-      connectSrc: ["'self'", "https://www.last.fm", "https://freesound.org", "https://api.spotify.com", "https://accounts.spotify.com"]
+      imgSrc: ["'self'", 'data:', 'https:'],
+      mediaSrc: ["'self'", 'https:', 'https://p.scdn.co'],
+      connectSrc: ["'self'", 'https://www.last.fm', 'https://freesound.org', 'https://api.spotify.com', 'https://accounts.spotify.com']
     }
   }
-}));
+}))
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? false : true,
+  origin: process.env.NODE_ENV !== 'production',
   credentials: true
-}));
-app.use(compression());
-app.use(morgan('combined'));
-app.use(express.static('.'));
+}))
+app.use(compression())
+app.use(morgan('combined'))
+app.use(express.static('.'))
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.'
-});
-app.use('/api/', limiter);
+})
+app.use('/api/', limiter)
 
 // File upload configuration
 const storage = multer.diskStorage({
@@ -57,86 +57,86 @@ const storage = multer.diskStorage({
     cb(null, 'uploads/')
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
   }
-});
+})
 
 const upload = multer({
-  storage: storage,
+  storage,
   limits: {
     fileSize: 50 * 1024 * 1024 // 50MB limit
   },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = ['audio/wav', 'audio/mp3', 'audio/aiff', 'audio/flac', 'audio/ogg'];
+    const allowedTypes = ['audio/wav', 'audio/mp3', 'audio/aiff', 'audio/flac', 'audio/ogg']
     if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
+      cb(null, true)
     } else {
-      cb(new Error('Invalid file type. Only audio files are allowed.'));
+      cb(new Error('Invalid file type. Only audio files are allowed.'))
     }
   }
-});
+})
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '10mb' }))
 
 // API Keys
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
-const FREESOUND_API_KEY = process.env.FREESOUND_API_KEY;
-const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY
+const FREESOUND_API_KEY = process.env.FREESOUND_API_KEY
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
+const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
 
 // Initialize LastFM
-const lastfm = new LastFM(LASTFM_API_KEY);
+const lastfm = new LastFM(LASTFM_API_KEY)
 
 // Initialize cache for API responses
-const cache = new NodeCache({ stdTTL: 300 }); // 5 minutes cache
+const cache = new NodeCache({ stdTTL: 300 }) // 5 minutes cache
 
 // Spotify token cache
-let spotifyToken = null;
-let spotifyTokenExpiry = 0;
+let spotifyToken = null
+let spotifyTokenExpiry = 0
 
-async function getSpotifyToken() {
+async function getSpotifyToken () {
   if (spotifyToken && Date.now() < spotifyTokenExpiry) {
-    return spotifyToken;
+    return spotifyToken
   }
   if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-    throw new Error('Spotify credentials not configured');
+    throw new Error('Spotify credentials not configured')
   }
-  const credentials = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+  const credentials = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64')
   const response = await axios.post('https://accounts.spotify.com/api/token',
     'grant_type=client_credentials',
     {
       headers: {
-        'Authorization': `Basic ${credentials}`,
+        Authorization: `Basic ${credentials}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     }
-  );
-  spotifyToken = response.data.access_token;
-  spotifyTokenExpiry = Date.now() + (response.data.expires_in - 60) * 1000;
-  return spotifyToken;
+  )
+  spotifyToken = response.data.access_token
+  spotifyTokenExpiry = Date.now() + (response.data.expires_in - 60) * 1000
+  return spotifyToken
 }
 
 // Freesound API configuration
-const FREESOUND_BASE_URL = 'https://freesound.org/apiv2';
+const FREESOUND_BASE_URL = 'https://freesound.org/apiv2'
 
 // Helper function for Freesound API calls
-async function fetchFreesound(endpoint, params = {}) {
+async function fetchFreesound (endpoint, params = {}) {
   try {
-    const url = new URL(`${FREESOUND_BASE_URL}${endpoint}`);
-    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+    const url = new URL(`${FREESOUND_BASE_URL}${endpoint}`)
+    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]))
 
     const response = await axios.get(url.toString(), {
       headers: {
-        'Authorization': `Token ${FREESOUND_API_KEY}`,
+        Authorization: `Token ${FREESOUND_API_KEY}`,
         'Content-Type': 'application/json'
       }
-    });
+    })
 
-    return response.data;
+    return response.data
   } catch (error) {
-    console.error('Freesound API error:', error.response?.status, error.response?.data || error.message);
-    throw error;
+    console.error('Freesound API error:', error.response?.status, error.response?.data || error.message)
+    throw error
   }
 }
 
@@ -471,22 +471,22 @@ app.get('/', (req, res) => {
         </script>
     </body>
     </html>
-  `);
-});
+  `)
+})
 
 // Combined Search Endpoint - NEW OPTIMIZATION
 app.get('/api/search', async (req, res) => {
   try {
-    const query = req.query.q;
+    const query = req.query.q
     if (!query) {
-      return res.json({ error: 'Query parameter is required' });
+      return res.json({ error: 'Query parameter is required' })
     }
 
     // Check cache first
-    const cacheKey = `search_${query}`;
-    const cached = cache.get(cacheKey);
+    const cacheKey = `search_${query}`
+    const cached = cache.get(cacheKey)
     if (cached) {
-      return res.json(cached);
+      return res.json(cached)
     }
 
     // Use Last.fm combined search for efficiency
@@ -497,141 +497,141 @@ app.get('/api/search', async (req, res) => {
       albumsLimit: 5
     }, (err, data) => {
       if (err) {
-        return res.json({ error: err.message });
+        return res.json({ error: err.message })
       }
 
       const result = {
-        query: query,
+        query,
         artists: data.artists || [],
         tracks: data.tracks || [],
         albums: data.albums || [],
         meta: data.meta || {}
-      };
+      }
 
       // Cache the result
-      cache.set(cacheKey, result);
-      res.json(result);
-    });
+      cache.set(cacheKey, result)
+      res.json(result)
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // Freesound Sound Details Endpoint - NEW FEATURE
 app.get('/api/freesound/sound/:id', async (req, res) => {
   try {
-    const soundId = req.params.id;
+    const soundId = req.params.id
 
     // Check cache first
-    const cacheKey = `freesound_sound_${soundId}`;
-    const cached = cache.get(cacheKey);
+    const cacheKey = `freesound_sound_${soundId}`
+    const cached = cache.get(cacheKey)
     if (cached) {
-      return res.json(cached);
+      return res.json(cached)
     }
 
     const data = await fetchFreesound(`/sounds/${soundId}/`, {
       fields: 'id,name,duration,description,tags,license,username,previews,download'
-    });
+    })
 
     // Cache the result
-    cache.set(cacheKey, data);
-    res.json(data);
+    cache.set(cacheKey, data)
+    res.json(data)
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // Music Discovery Endpoint - NEW FEATURE
 app.get('/api/recommendations/:artist', async (req, res) => {
   try {
-    const artistName = req.params.artist;
+    const artistName = req.params.artist
 
     // Check cache first
-    const cacheKey = `recommendations_${artistName}`;
-    const cached = cache.get(cacheKey);
+    const cacheKey = `recommendations_${artistName}`
+    const cached = cache.get(cacheKey)
     if (cached) {
-      return res.json(cached);
+      return res.json(cached)
     }
 
     lastfm.artistSimilar({ name: artistName, limit: 10 }, (err, data) => {
       if (err) {
-        return res.json({ error: err.message });
+        return res.json({ error: err.message })
       }
 
       // Cache the result
-      cache.set(cacheKey, data);
-      res.json(data);
-    });
+      cache.set(cacheKey, data)
+      res.json(data)
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // API Endpoints
 app.get('/api/search/artist', async (req, res) => {
   try {
-    const query = req.query.q;
+    const query = req.query.q
     if (!query) {
-      return res.json({ error: 'Query parameter required' });
+      return res.json({ error: 'Query parameter required' })
     }
 
     lastfm.artistSearch({ q: query, limit: 10 }, (err, data) => {
       if (err) {
-        return res.json({ error: err.message });
+        return res.json({ error: err.message })
       }
 
       res.json({
         results: data ? (data.result || []) : [],
-        query: query
-      });
-    });
+        query
+      })
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 app.get('/api/search/track', async (req, res) => {
   try {
-    const query = req.query.q;
+    const query = req.query.q
     if (!query) {
-      return res.json({ error: 'Query parameter required' });
+      return res.json({ error: 'Query parameter required' })
     }
 
     lastfm.trackSearch({ q: query, limit: 10 }, (err, data) => {
       if (err) {
-        return res.json({ error: err.message });
+        return res.json({ error: err.message })
       }
 
       res.json({
         results: data ? (data.result || []) : [],
-        query: query
-      });
-    });
+        query
+      })
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 app.get('/api/top-tracks', async (req, res) => {
   try {
     lastfm.chartTopTracks({ limit: 20 }, (err, data) => {
       if (err) {
-        return res.json({ error: err.message });
+        return res.json({ error: err.message })
       }
 
       res.json({
         results: data ? (data.result || []) : []
-      });
-    });
+      })
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 app.get('/api/freesound/search', async (req, res) => {
   try {
-    const query = req.query.q || 'brass stab';
-    const limit = parseInt(req.query.limit) || 10;
+    const query = req.query.q || 'brass stab'
+    const limit = parseInt(req.query.limit) || 10
 
     // Check if API key is configured
     if (!FREESOUND_API_KEY || FREESOUND_API_KEY.includes('demo_key') || FREESOUND_API_KEY.includes('YOUR_FREESOUND_API_KEY')) {
@@ -657,20 +657,20 @@ app.get('/api/freesound/search', async (req, res) => {
             tags: ['horn', 'hit', 'brass']
           }
         ],
-        query: query,
+        query,
         demo: true,
         message: 'Using demo data - configure FREESOUND_API_KEY for real data'
-      });
+      })
     }
 
-    console.log('Attempting Freesound API call with key:', FREESOUND_API_KEY.substring(0, 20) + '...');
+    console.log('Attempting Freesound API call with key:', FREESOUND_API_KEY.substring(0, 20) + '...')
 
     const data = await fetchFreesound('/search/text/', {
-      query: query,
+      query,
       filter: 'duration:[0.1 TO 10.0]',
       fields: 'id,name,duration,download,url,tags,previews',
       page_size: limit
-    });
+    })
 
     const results = data.results.map(sound => ({
       id: sound.id,
@@ -680,16 +680,16 @@ app.get('/api/freesound/search', async (req, res) => {
       preview_url: sound.previews ? sound.previews['preview-hq-mp3'] : null,
       url: sound.url,
       tags: sound.tags
-    }));
+    }))
 
-    res.json({ results, query: query, count: results.length });
+    res.json({ results, query, count: results.length })
   } catch (error) {
     console.error('Freesound API error details:', {
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data,
       message: error.message
-    });
+    })
 
     // Return demo data as fallback
     res.json({
@@ -708,14 +708,14 @@ app.get('/api/freesound/search', async (req, res) => {
       demo: true,
       error: 'API call failed, using demo data',
       api_error: error.message
-    });
+    })
   }
-});
+})
 
 // Local Samples API
 app.get('/api/local-samples', async (req, res) => {
   try {
-    const samplesPath = './brass_samples.json';
+    const samplesPath = './brass_samples.json'
 
     if (!fs.existsSync(samplesPath)) {
       // Create demo samples file
@@ -740,38 +740,38 @@ app.get('/api/local-samples', async (req, res) => {
             added_date: new Date().toISOString()
           }
         ]
-      };
+      }
 
-      fs.writeFileSync(samplesPath, JSON.stringify(demoSamples, null, 2));
-      return res.json(demoSamples);
+      fs.writeFileSync(samplesPath, JSON.stringify(demoSamples, null, 2))
+      return res.json(demoSamples)
     }
 
-    const samplesData = JSON.parse(fs.readFileSync(samplesPath, 'utf8'));
-    res.json(samplesData);
+    const samplesData = JSON.parse(fs.readFileSync(samplesPath, 'utf8'))
+    res.json(samplesData)
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // Audio Upload Endpoint
 app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.json({ success: false, error: 'No file uploaded' });
+      return res.json({ success: false, error: 'No file uploaded' })
     }
 
     // Read existing samples
-    const samplesPath = './brass_samples.json';
-    let samplesData = { samples: [] };
+    const samplesPath = './brass_samples.json'
+    let samplesData = { samples: [] }
 
     if (fs.existsSync(samplesPath)) {
-      samplesData = JSON.parse(fs.readFileSync(samplesPath, 'utf8'));
+      samplesData = JSON.parse(fs.readFileSync(samplesPath, 'utf8'))
     }
 
     // Create new sample entry
     const newSample = {
       id: Date.now(),
-      name: req.file.originalname.replace(/\.[^/.]+$/, ""), // Remove extension
+      name: req.file.originalname.replace(/\.[^/.]+$/, ''), // Remove extension
       tags: ['uploaded', 'audio', path.extname(req.file.originalname).substring(1)],
       description: `Uploaded audio file: ${req.file.originalname}`,
       duration: 'Unknown', // Could be extracted with audio analysis library
@@ -780,23 +780,23 @@ app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
       size: req.file.size,
       mimetype: req.file.mimetype,
       added_date: new Date().toISOString()
-    };
+    }
 
-    samplesData.samples.push(newSample);
+    samplesData.samples.push(newSample)
 
     // Save updated samples
-    fs.writeFileSync(samplesPath, JSON.stringify(samplesData, null, 2));
+    fs.writeFileSync(samplesPath, JSON.stringify(samplesData, null, 2))
 
     res.json({
       success: true,
       message: 'Audio uploaded successfully',
       sample: newSample
-    });
+    })
   } catch (error) {
-    console.error('Upload error:', error);
-    res.json({ success: false, error: error.message });
+    console.error('Upload error:', error)
+    res.json({ success: false, error: error.message })
   }
-});
+})
 app.post('/api/audio/process', upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
@@ -837,14 +837,14 @@ app.post('/api/audio/process', upload.single('audio'), async (req, res) => {
 const audioSessions = new Map()
 const AUDIO_SESSION_TTL_MS = 10 * 60 * 1000
 
-function stableJson(v) {
+function stableJson (v) {
   if (v === null || typeof v !== 'object') return JSON.stringify(v)
   if (Array.isArray(v)) return '[' + v.map(stableJson).join(',') + ']'
   const keys = Object.keys(v).sort()
   return '{' + keys.map(k => JSON.stringify(k) + ':' + stableJson(v[k])).join(',') + '}'
 }
 
-function cleanupAudioSessions() {
+function cleanupAudioSessions () {
   const now = Date.now()
   for (const [sid, sess] of audioSessions.entries()) {
     if (!sess || !sess.updatedAt || now - sess.updatedAt > AUDIO_SESSION_TTL_MS) {
@@ -889,102 +889,102 @@ app.post('/api/audio/process-chunk', async (req, res) => {
 
 // Serve uploaded audio files
 app.get('/uploads/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(__dirname, 'uploads', filename);
+  const filename = req.params.filename
+  const filePath = path.join(__dirname, 'uploads', filename)
 
   if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
+    res.sendFile(filePath)
   } else {
-    res.status(404).json({ error: 'File not found' });
+    res.status(404).json({ error: 'File not found' })
   }
-});
+})
 
 // Studio Rig Information Endpoint - NEW FEATURE
 app.get('/api/studio/rig', (req, res) => {
   try {
-    const studioRig = getStudioRig();
-    const equipmentCount = getEquipmentCount();
+    const studioRig = getStudioRig()
+    const equipmentCount = getEquipmentCount()
 
     res.json({
       rig: studioRig,
       counts: equipmentCount,
       timestamp: new Date().toISOString()
-    });
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // Effects Chains Endpoint - NEW FEATURE
 app.get('/api/studio/chains', (req, res) => {
   try {
-    const chains = getAllChains();
-    const routing = getRoutingDiagram();
+    const chains = getAllChains()
+    const routing = getRoutingDiagram()
 
     res.json({
-      chains: chains,
-      routing: routing,
+      chains,
+      routing,
       timestamp: new Date().toISOString()
-    });
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // MIDI Automation Endpoint - NEW FEATURE
 app.get('/api/studio/midi', (req, res) => {
   try {
-    const studioRig = getStudioRig();
-    const midiControllers = studioRig.instruments?.synthesizers?.midiControllers || {};
-    const midiInterfaces = studioRig.instruments?.synthesizers?.midiInterface || {};
+    const studioRig = getStudioRig()
+    const midiControllers = studioRig.instruments?.synthesizers?.midiControllers || {}
+    const midiInterfaces = studioRig.instruments?.synthesizers?.midiInterface || {}
 
     res.json({
       controllers: midiControllers,
       interfaces: midiInterfaces,
       timestamp: new Date().toISOString()
-    });
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // Monster Cable Inventory Endpoint - NEW FEATURE
 app.get('/api/studio/cables', (req, res) => {
   try {
-    const studioRig = getStudioRig();
-    const monsterCables = studioRig.instruments?.synthesizers?.patchwork?.monsterCable || {};
-    const cableManagement = studioRig.instruments?.synthesizers?.patchwork?.cableManagement || {};
+    const studioRig = getStudioRig()
+    const monsterCables = studioRig.instruments?.synthesizers?.patchwork?.monsterCable || {}
+    const cableManagement = studioRig.instruments?.synthesizers?.patchwork?.cableManagement || {}
 
     res.json({
-      monsterCables: monsterCables,
-      cableManagement: cableManagement,
+      monsterCables,
+      cableManagement,
       timestamp: new Date().toISOString()
-    });
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // Spotify Track Search Endpoint
 app.get('/api/spotify/search', async (req, res) => {
   try {
-    const query = req.query.q;
+    const query = req.query.q
     if (!query) {
-      return res.json({ error: 'Query parameter required' });
+      return res.json({ error: 'Query parameter required' })
     }
     if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-      return res.json({ error: 'Spotify credentials not configured — add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to .env.production' });
+      return res.json({ error: 'Spotify credentials not configured — add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to .env.production' })
     }
 
-    const cacheKey = `spotify_${query}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return res.json(cached);
+    const cacheKey = `spotify_${query}`
+    const cached = cache.get(cacheKey)
+    if (cached) return res.json(cached)
 
-    const token = await getSpotifyToken();
+    const token = await getSpotifyToken()
     const response = await axios.get('https://api.spotify.com/v1/search', {
       params: { q: query, type: 'track', limit: 10 },
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
+      headers: { Authorization: `Bearer ${token}` }
+    })
 
     const tracks = response.data.tracks.items.map(track => ({
       id: track.id,
@@ -995,31 +995,31 @@ app.get('/api/spotify/search', async (req, res) => {
       spotify_url: track.external_urls.spotify,
       image: track.album.images[1]?.url || track.album.images[0]?.url || null,
       duration_ms: track.duration_ms
-    }));
+    }))
 
-    const result = { results: tracks, query };
-    cache.set(cacheKey, result);
-    res.json(result);
+    const result = { results: tracks, query }
+    cache.set(cacheKey, result)
+    res.json(result)
   } catch (error) {
-    console.error('Spotify API error:', error.response?.status, error.response?.data || error.message);
-    res.json({ error: error.message });
+    console.error('Spotify API error:', error.response?.status, error.response?.data || error.message)
+    res.json({ error: error.message })
   }
-});
+})
 
 // Video Capture Profile Endpoint - NEW FEATURE
 app.get('/api/studio/video-capture', (req, res) => {
   try {
-    const studioRig = getStudioRig();
-    const videoCapture = studioRig.videoCapture || {};
+    const studioRig = getStudioRig()
+    const videoCapture = studioRig.videoCapture || {}
 
     res.json({
       videoCapture,
       timestamp: new Date().toISOString()
-    });
+    })
   } catch (error) {
-    res.json({ error: error.message });
+    res.json({ error: error.message })
   }
-});
+})
 
 // Last.fm zip-aware audio stream proxy
 app.get('/api/lastfm/stream', async (req, res) => {
@@ -1081,11 +1081,11 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     service: 'lastfm-desktop-web'
-  });
-});
+  })
+})
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Last.fm Desktop Web Server running on http://localhost:${PORT}`);
-  console.log('Open your browser to access the application');
-});
+  console.log(`Last.fm Desktop Web Server running on http://localhost:${PORT}`)
+  console.log('Open your browser to access the application')
+})

@@ -252,7 +252,7 @@ const utils = {
    */
   debounce: (func, wait) => {
     let timeout
-    return function executedFunction(...args) {
+    return function executedFunction (...args) {
       const later = () => {
         clearTimeout(timeout)
         func(...args)
@@ -480,9 +480,9 @@ const utils = {
  * @param {Object} options - Additional options for security
  * @returns {Function} Wrapped API function
  */
-function createSecureApiWrapper(channel, validator = null, options = {}) {
+function createSecureApiWrapper (channel, validator = null, options = {}) {
   const {
-    requiresAuth = false,
+    requiresAuth: _requiresAuth = false, // eslint-disable-line no-unused-vars
     rateLimitKey = null,
     maxCalls = 10,
     windowMs = 60000,
@@ -540,9 +540,11 @@ function createSecureApiWrapper(channel, validator = null, options = {}) {
 /**
  * Legacy API wrapper for backward compatibility
  */
-function createApiWrapper(channel, validator = null) {
+function createApiWrapper (channel, validator = null) {
   return createSecureApiWrapper(channel, validator)
 }
+module.exports = module.exports || {}
+module.exports.createApiWrapper = createApiWrapper
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object

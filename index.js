@@ -13,7 +13,7 @@ const IMAGE_WEIGHT = {
 }
 
 class LastFM {
-  constructor(key, opts) {
+  constructor (key, opts) {
     if (!key) throw new Error('Missing required `key` argument')
     if (!opts) opts = {}
     this._key = key
@@ -22,7 +22,7 @@ class LastFM {
     this._minTrackListeners = opts.minTrackListeners || 0
   }
 
-  _sendRequest(params, name, cb) {
+  _sendRequest (params, name, cb) {
     Object.assign(params, {
       api_key: this._key,
       format: 'json'
@@ -41,7 +41,7 @@ class LastFM {
 
     get.concat(opts, onResponse)
 
-    function onResponse(err, res, data) {
+    function onResponse (err, res, data) {
       if (err) return cb(err)
       if (data.error) return cb(new Error(data.message))
       cb(null, data[name])
@@ -52,7 +52,7 @@ class LastFM {
    * PARSE COMMON RESPONSE PROPERTIES
    */
 
-  _parseImages(image) {
+  _parseImages (image) {
     return image
       .sort((a, b) => IMAGE_WEIGHT[a.size] - IMAGE_WEIGHT[b.size])
       .filter(image => image.size !== '')
@@ -60,7 +60,7 @@ class LastFM {
       .filter(image => image && image.length > 0)
   }
 
-  _parseMeta(data, query) {
+  _parseMeta (data, query) {
     if (data['opensearch:totalResults']) {
       const total = Number(data['opensearch:totalResults'])
       const perPage = Number(data['opensearch:itemsPerPage'])
@@ -78,7 +78,7 @@ class LastFM {
     }
   }
 
-  _parseSummary(summary) {
+  _parseSummary (summary) {
     return summary.replace(/\s+?<a .*?>Read more on Last\.fm<\/a>.*$/, '')
   }
 
@@ -86,7 +86,7 @@ class LastFM {
    * PARSE COMMON RESPONSE TYPES
    */
 
-  _parseArtists(artists) {
+  _parseArtists (artists) {
     return artists
       .map(artist => {
         return {
@@ -99,7 +99,7 @@ class LastFM {
       .filter(artist => artist.listeners == null || artist.listeners >= this._minArtistListeners)
   }
 
-  _parseAlbums(albums) {
+  _parseAlbums (albums) {
     return albums
       .map(album => {
         return {
@@ -115,11 +115,11 @@ class LastFM {
       })
   }
 
-  _parseTags(tags) {
+  _parseTags (tags) {
     return tags.tag.map(t => t.name)
   }
 
-  _parseTracks(tracks) {
+  _parseTracks (tracks) {
     return tracks
       .map(track => {
         const listeners = track.playcount || track.listeners
@@ -139,7 +139,7 @@ class LastFM {
    * CONVENIENCE API
    */
 
-  search(opts, cb) {
+  search (opts, cb) {
     if (!opts.q) {
       return cb(new Error('Missing required param: q'))
     }
@@ -193,7 +193,7 @@ class LastFM {
    * ALBUM API
    */
 
-  albumInfo(opts, cb) {
+  albumInfo (opts, cb) {
     if (!opts.name || !opts.artistName) {
       return cb(new Error('Missing required params: name, artistName'))
     }
@@ -218,7 +218,7 @@ class LastFM {
     })
   }
 
-  albumTopTags(opts, cb) {
+  albumTopTags (opts, cb) {
     if (!opts.name || !opts.artistName) {
       return cb(new Error('Missing required params: name, artistName'))
     }
@@ -231,7 +231,7 @@ class LastFM {
     this._sendRequest(params, 'toptags', cb)
   }
 
-  albumSearch(opts, cb) {
+  albumSearch (opts, cb) {
     if (!opts.q) {
       return cb(new Error('Missing required param: q'))
     }
@@ -254,7 +254,7 @@ class LastFM {
    * ARTIST API
    */
 
-  artistCorrection(opts, cb) {
+  artistCorrection (opts, cb) {
     if (!opts.name) {
       return cb(new Error('Missing required param: name'))
     }
@@ -271,7 +271,7 @@ class LastFM {
     })
   }
 
-  artistInfo(opts, cb) {
+  artistInfo (opts, cb) {
     if (!opts.name) {
       return cb(new Error('Missing required param: name'))
     }
@@ -301,7 +301,7 @@ class LastFM {
     })
   }
 
-  artistSimilar(opts, cb) {
+  artistSimilar (opts, cb) {
     if (!opts.name) {
       return cb(new Error('Missing required param: name'))
     }
@@ -314,7 +314,7 @@ class LastFM {
     this._sendRequest(params, 'similarartists', cb)
   }
 
-  artistTopAlbums(opts, cb) {
+  artistTopAlbums (opts, cb) {
     if (!opts.name) {
       return cb(new Error('Missing required param: name'))
     }
@@ -333,7 +333,7 @@ class LastFM {
     })
   }
 
-  artistTopTags(opts, cb) {
+  artistTopTags (opts, cb) {
     if (!opts.name) {
       return cb(new Error('Missing required param: name'))
     }
@@ -345,7 +345,7 @@ class LastFM {
     this._sendRequest(params, 'toptags', cb)
   }
 
-  artistTopTracks(opts, cb) {
+  artistTopTracks (opts, cb) {
     if (!opts.name) {
       return cb(new Error('Missing required param: name'))
     }
@@ -364,7 +364,7 @@ class LastFM {
     })
   }
 
-  artistSearch(opts, cb) {
+  artistSearch (opts, cb) {
     if (!opts.q) {
       return cb(new Error('Missing required param: q'))
     }
@@ -387,7 +387,7 @@ class LastFM {
    * CHART API
    */
 
-  chartTopArtists(opts, cb) {
+  chartTopArtists (opts, cb) {
     const params = {
       method: 'chart.getTopArtists',
       limit: opts.limit,
@@ -403,7 +403,7 @@ class LastFM {
     })
   }
 
-  chartTopTags(opts, cb) {
+  chartTopTags (opts, cb) {
     const params = {
       method: 'chart.getTopTags',
       limit: opts.limit,
@@ -413,7 +413,7 @@ class LastFM {
     this._sendRequest(params, 'tags', cb)
   }
 
-  chartTopTracks(opts, cb) {
+  chartTopTracks (opts, cb) {
     const params = {
       method: 'chart.getTopTracks',
       limit: opts.limit,
@@ -433,7 +433,7 @@ class LastFM {
    * GEO API
    */
 
-  geoTopArtists(opts, cb) {
+  geoTopArtists (opts, cb) {
     if (!opts.country) {
       return cb(new Error('Missing required param: country'))
     }
@@ -447,7 +447,7 @@ class LastFM {
     this._sendRequest(params, 'topartists', cb)
   }
 
-  geoTopTracks(opts, cb) {
+  geoTopTracks (opts, cb) {
     if (!opts.country) {
       return cb(new Error('Missing required param: country'))
     }
@@ -465,7 +465,7 @@ class LastFM {
    * TAG API
    */
 
-  tagInfo(opts, cb) {
+  tagInfo (opts, cb) {
     if (!opts.tag) {
       return cb(new Error('Missing required param: tag'))
     }
@@ -476,7 +476,7 @@ class LastFM {
     this._sendRequest(params, 'tag', cb)
   }
 
-  tagSimilar(opts, cb) {
+  tagSimilar (opts, cb) {
     if (!opts.tag) {
       return cb(new Error('Missing required param: tag'))
     }
@@ -487,7 +487,7 @@ class LastFM {
     this._sendRequest(params, 'similartags', cb)
   }
 
-  tagTopAlbums(opts, cb) {
+  tagTopAlbums (opts, cb) {
     if (!opts.tag) {
       return cb(new Error('Missing required param: tag'))
     }
@@ -500,7 +500,7 @@ class LastFM {
     this._sendRequest(params, 'albums', cb)
   }
 
-  tagTopArtists(opts, cb) {
+  tagTopArtists (opts, cb) {
     if (!opts.tag) {
       return cb(new Error('Missing required param: tag'))
     }
@@ -513,14 +513,14 @@ class LastFM {
     this._sendRequest(params, 'topartists', cb)
   }
 
-  tagTopTags(opts, cb) {
+  tagTopTags (opts, cb) {
     const params = {
       method: 'tag.getTopTags'
     }
     this._sendRequest(params, 'toptags', cb)
   }
 
-  tagTopTracks(opts, cb) {
+  tagTopTracks (opts, cb) {
     if (!opts.tag) {
       return cb(new Error('Missing required param: tag'))
     }
@@ -537,7 +537,7 @@ class LastFM {
    * TRACK API
    */
 
-  trackCorrection(opts, cb) {
+  trackCorrection (opts, cb) {
     if (!opts.name || !opts.artistName) {
       return cb(new Error('Missing required params: name, artistName'))
     }
@@ -555,7 +555,7 @@ class LastFM {
     })
   }
 
-  trackInfo(opts, cb) {
+  trackInfo (opts, cb) {
     if (!opts.name || !opts.artistName) {
       return cb(new Error('Missing required params: name, artistName'))
     }
@@ -580,7 +580,7 @@ class LastFM {
     })
   }
 
-  trackSimilar(opts, cb) {
+  trackSimilar (opts, cb) {
     if (!opts.name || !opts.artistName) {
       return cb(new Error('Missing required params: name, artistName'))
     }
@@ -594,7 +594,7 @@ class LastFM {
     this._sendRequest(params, 'similartracks', cb)
   }
 
-  trackTopTags(opts, cb) {
+  trackTopTags (opts, cb) {
     if (!opts.name || !opts.artistName) {
       return cb(new Error('Missing required params: name, artistName'))
     }
@@ -607,7 +607,7 @@ class LastFM {
     this._sendRequest(params, 'toptags', cb)
   }
 
-  trackSearch(opts, cb) {
+  trackSearch (opts, cb) {
     if (!opts.q) {
       return cb(new Error('Missing required param: q'))
     }

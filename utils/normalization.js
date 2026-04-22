@@ -65,6 +65,12 @@ const NORMALIZATION_CONFIG = {
   }
 }
 
+const YEAR_2000_TIMESTAMP = 946684800
+const YEAR_2100_TIMESTAMP = 4102444800000
+const THREE = 3
+const ZERO_POINT_SIX_SEVEN_FOUR_FIVE = 0.6745
+const ONE_HUNDRED = 100
+
 /**
  * Data type detection and validation utilities
  */
@@ -96,8 +102,6 @@ const DataTypeUtils = {
    * @param {*} value - Value to check
    * @returns {boolean} True if value is a timestamp
    */
-  const YEAR_2000_TIMESTAMP = 946684800
-const YEAR_2100_TIMESTAMP = 4102444800000
   isTimestamp: (value) => {
     if (typeof value === 'number') {
       // Unix timestamp (seconds or milliseconds)
@@ -242,8 +246,6 @@ const StatisticalUtils = {
    * @param {string} method - Outlier detection method
    * @returns {Object} Outlier detection results
    */
-  const THREE = 3
-const ZERO_POINT_SIX_SEVEN_FOUR_FIVE = 0.6745
   detectOutliers: (values, method = NORMALIZATION_CONFIG.OUTLIER_METHODS.IQR) => {
     const numericValues = DataTypeUtils.filterNumeric(values)
 
@@ -339,7 +341,6 @@ const NormalizationCore = {
    * @param {number} targetMax - Target maximum value (default: 1)
    * @returns {number} Normalized value
    */
-  const ONE_HUNDRED = 100
   minMaxScale: (value, min, max) => {
     if (!DataTypeUtils.isValidNumeric(value)) return 0
     if (min === max) return 0
@@ -764,7 +765,6 @@ const Normalizer = {
    * @param {Object} options - Analysis options
    * @returns {Object} Normalization context
    */
-  const TEN = 10
   createContext: (dataset, fields, options = {}) => {
     const ranges = BatchProcessor.computeRanges(dataset, fields, options)
 

@@ -1,19 +1,19 @@
 const { biquadCoefficients, BiquadFilter } = require('./biquad')
 
-function applyGain(x, gain) {
+function applyGain (x, gain) {
   return x * gain
 }
 
-function softClip(x, drive) {
+function softClip (x, drive) {
   const d = Math.max(0, drive || 1)
   return Math.tanh(x * d)
 }
 
-function makeNoiseGate({ threshold = 0.02, reduction = 0.0, attackMs = 5, releaseMs = 50, sampleRate }) {
+function makeNoiseGate ({ threshold = 0.02, reduction = 0.0, attackMs = 5, releaseMs = 50, sampleRate }) {
   const attack = Math.exp(-1 / ((attackMs / 1000) * sampleRate))
   const release = Math.exp(-1 / ((releaseMs / 1000) * sampleRate))
   let env = 0
-  return function process(buffer) {
+  return function process (buffer) {
     const out = new Float32Array(buffer.length)
     for (let i = 0; i < buffer.length; i++) {
       const x = buffer[i]
@@ -27,13 +27,13 @@ function makeNoiseGate({ threshold = 0.02, reduction = 0.0, attackMs = 5, releas
   }
 }
 
-function makeCompressor({ thresholdDb = -18, ratio = 4, makeupDb = 0, attackMs = 10, releaseMs = 100, sampleRate }) {
+function makeCompressor ({ thresholdDb = -18, ratio = 4, makeupDb = 0, attackMs = 10, releaseMs = 100, sampleRate }) {
   const thr = Math.pow(10, thresholdDb / 20)
   const makeup = Math.pow(10, makeupDb / 20)
   const attack = Math.exp(-1 / ((attackMs / 1000) * sampleRate))
   const release = Math.exp(-1 / ((releaseMs / 1000) * sampleRate))
   let env = 0
-  return function process(buffer) {
+  return function process (buffer) {
     const out = new Float32Array(buffer.length)
     for (let i = 0; i < buffer.length; i++) {
       const x = buffer[i]
@@ -53,7 +53,7 @@ function makeCompressor({ thresholdDb = -18, ratio = 4, makeupDb = 0, attackMs =
   }
 }
 
-function makeEQ({ bands = [], sampleRate }) {
+function makeEQ ({ bands = [], sampleRate }) {
   const filters = bands.map(b => {
     const type = b.type
     const freq = b.freq
@@ -63,18 +63,18 @@ function makeEQ({ bands = [], sampleRate }) {
     return new BiquadFilter(coeffs)
   })
 
-  return function process(buffer) {
+  return function process (buffer) {
     let out = buffer
     for (const f of filters) out = f.process(out)
     return out
   }
 }
 
-function makeDelay({ timeMs = 250, feedback = 0.25, mix = 0.2, sampleRate }) {
+function makeDelay ({ timeMs = 250, feedback = 0.25, mix = 0.2, sampleRate }) {
   const delaySamples = Math.max(1, Math.round((timeMs / 1000) * sampleRate))
   const buf = new Float32Array(delaySamples)
   let idx = 0
-  return function process(input) {
+  return function process (input) {
     const out = new Float32Array(input.length)
     for (let i = 0; i < input.length; i++) {
       const d = buf[idx]
@@ -87,7 +87,7 @@ function makeDelay({ timeMs = 250, feedback = 0.25, mix = 0.2, sampleRate }) {
   }
 }
 
-function applyPedal(buffer, pedal, context, pedalKey) {
+function applyPedal (buffer, pedal, context, pedalKey) {
   if (!pedal || !pedal.type) return buffer
   const type = pedal.type
   const key = pedalKey || type

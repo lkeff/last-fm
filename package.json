@@ -94,7 +94,7 @@
     "start": "electron .",
     "dev": "electron .",
     "test:security": "eslint --ext .js --plugin security --rule \"security/detect-object-injection:warn\" .",
-    "test": "standard && npm run test:security && node -e \"require('./')\"",
+    "test": "standard && npm run test:security && node -e \"require('./index.js')\"",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "security-audit": "npm audit && electron-builder --dir --config.nsis.oneClick=false",

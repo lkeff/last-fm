@@ -5,7 +5,7 @@ const { FIRConvolver } = require('./convolver')
 const { applyPedal } = require('./pedals')
 const { resampleLinear } = require('./resample')
 
-function resolveSafePath(baseDir, userPath) {
+function resolveSafePath (baseDir, userPath) {
   const resolvedBase = path.resolve(baseDir)
   const resolved = path.resolve(resolvedBase, userPath)
   if (!resolved.startsWith(resolvedBase + path.sep) && resolved !== resolvedBase) {
@@ -14,14 +14,14 @@ function resolveSafePath(baseDir, userPath) {
   return resolved
 }
 
-async function loadIRWav(irPath) {
+async function loadIRWav (irPath) {
   const buf = fs.readFileSync(irPath)
   const irAudio = await decodeWavBuffer(buf)
   const mono = irAudio.channelData.length === 1 ? irAudio.channelData[0] : irAudio.channelData[0]
   return { sampleRate: irAudio.sampleRate, mono }
 }
 
-function processChannelWithPedals(channel, pedals, sampleRate) {
+function processChannelWithPedals (channel, pedals, sampleRate) {
   let out = channel
   const ctx = { sampleRate }
   for (let i = 0; i < (pedals || []).length; i++) {
@@ -31,14 +31,14 @@ function processChannelWithPedals(channel, pedals, sampleRate) {
   return out
 }
 
-function clampIRLength(ir, sampleRate, maxSeconds) {
+function clampIRLength (ir, sampleRate, maxSeconds) {
   if (!maxSeconds || maxSeconds <= 0) return ir
   const maxSamples = Math.max(1, Math.floor(maxSeconds * sampleRate))
   if (ir.length <= maxSamples) return ir
   return ir.subarray(0, maxSamples)
 }
 
-function applyPhaseDelaySamples(ir, delaySamples) {
+function applyPhaseDelaySamples (ir, delaySamples) {
   const d = Math.max(0, Math.floor(delaySamples || 0))
   if (d === 0) return ir
   const out = new Float32Array(ir.length + d)
@@ -46,7 +46,7 @@ function applyPhaseDelaySamples(ir, delaySamples) {
   return out
 }
 
-function mixIRs(a, b, morph) {
+function mixIRs (a, b, morph) {
   const m = typeof morph === 'number' ? Math.max(0, Math.min(1, morph)) : 0.5
   const len = Math.max(a.length, b.length)
   const out = new Float32Array(len)
@@ -58,7 +58,7 @@ function mixIRs(a, b, morph) {
   return out
 }
 
-async function buildCabIR({ sampleRate, cabSim }) {
+async function buildCabIR ({ sampleRate, cabSim }) {
   const blockSize = cabSim.blockSize || 1024
   const irDir = cabSim.irBaseDir || path.join(process.cwd(), 'config', 'irs')
 
@@ -92,14 +92,14 @@ async function buildCabIR({ sampleRate, cabSim }) {
   return { ir, blockSize }
 }
 
-function createAudioProcessor({ sampleRate, pedals, cabSim }) {
+function createAudioProcessor ({ sampleRate, pedals, cabSim }) {
   const pedalContext = { sampleRate }
 
   let convolver = null
   let cabMix = 1
   let cabEnabled = false
 
-  async function ensureCab() {
+  async function ensureCab () {
     if (!cabSim || !cabSim.enabled) {
       cabEnabled = false
       convolver = null
@@ -113,7 +113,7 @@ function createAudioProcessor({ sampleRate, pedals, cabSim }) {
 
   let cabReady = false
 
-  async function processChannels(channelData) {
+  async function processChannels (channelData) {
     if (!cabReady) {
       await ensureCab()
       cabReady = true
@@ -158,12 +158,13 @@ function createAudioProcessor({ sampleRate, pedals, cabSim }) {
   return { processChannels }
 }
 
-async function processAudio({ sampleRate, channelData, pedals, cabSim }) {
+async function processAudio ({ sampleRate, channelData, pedals, cabSim }) {
   const proc = createAudioProcessor({ sampleRate, pedals, cabSim })
   return await proc.processChannels(channelData)
 }
 
 module.exports = {
   processAudio,
-  createAudioProcessor
+  createAudioProcessor,
+  processChannelWithPedals
 }
