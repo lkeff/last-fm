@@ -97,7 +97,9 @@ let spotifyToken = null
 let spotifyTokenExpiry = 0
 
 // 24/7 auto-updater: re-reads brass_samples.json and recomputes normalizations
-const SAMPLES_PATH = './brass_samples.json'
+// In Docker the data volume is mounted at /app/data; fall back to cwd for local dev
+const SAMPLES_PATH = process.env.SAMPLES_PATH ||
+  (fs.existsSync('/app/data') ? '/app/data/brass_samples.json' : './brass_samples.json')
 function _readSamplesForUpdater () {
   if (!fs.existsSync(SAMPLES_PATH)) return []
   try {

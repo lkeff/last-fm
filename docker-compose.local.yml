@@ -14,11 +14,13 @@ services:
       - NODE_ENV=production
       - LASTFM_API_KEY=${LASTFM_API_KEY}
       - PORT=3000
+      - AUTOUPDATE_INTERVAL_MS=${AUTOUPDATE_INTERVAL_MS:-60000}
     env_file:
       - .env
     volumes:
       - ./logs:/app/logs
       - ./config:/app/config
+      - lastfm_data:/app/data
     healthcheck:
       test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" ]
       interval: 30s
@@ -30,6 +32,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+      - /app/uploads:mode=1777
     deploy:
       resources:
         limits:
@@ -54,3 +57,7 @@ services:
       - lastfm
     profiles:
       - production
+
+volumes:
+  lastfm_data:
+    driver: local

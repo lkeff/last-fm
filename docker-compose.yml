@@ -14,25 +14,25 @@ services:
       - PORT=3000
       - LASTFM_API_KEY=${LASTFM_API_KEY}
       - FREESOUND_API_KEY=${FREESOUND_API_KEY}
+      - AUTOUPDATE_INTERVAL_MS=${AUTOUPDATE_INTERVAL_MS:-60000}
     env_file:
       - .env
     volumes:
       - ./logs:/app/logs
       - ./uploads:/app/uploads
       - ./config:/app/config
+      - lastfm_data:/app/data
     healthcheck:
-      test: ["CMD", "node", "-e", "
-        const http = require('http');
-        const checks = ['/health', '/api/search?q=test', '/api/studio/rig'];
-        let completed = 0;
-        checks.forEach(endpoint => {
-          http.get('http://localhost:3000' + endpoint, (res) => {
-            if (res.statusCode === 200) completed++;
-            if (completed === checks.length) process.exit(0);
-          }).on('error', () => process.exit(1));
-        });
-        setTimeout(() => process.exit(1), 5000);
-      "]
+      test:
+        - CMD
+        - node
+        - -e
+        - |
+          const h=require('http');
+          const urls=['/health','/api/studio/rig','/api/normalization/status'];
+          let ok=0;
+          urls.forEach(u=>h.get('http://localhost:3000'+u,r=>{if(r.statusCode===200&&++ok===urls.length)process.exit(0);}).on('error',()=>process.exit(1)));
+          setTimeout(()=>process.exit(1),5000);
       interval: 30s
       timeout: 15s
       retries: 3
@@ -43,6 +43,7 @@ services:
     tmpfs:
       - /tmp
       - /app/node_modules/.cache
+      - /app/uploads:mode=1777
     deploy:
       resources:
         limits:
@@ -90,7 +91,7 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -109,4 +110,6 @@ networks:
 
 volumes:
   redis_data:
+    driver: local
+  lastfm_data:
     driver: local

@@ -33,13 +33,19 @@ COPY . .
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Create necessary directories for uploads and logs
-RUN mkdir -p /app/uploads /app/logs && \
-    chown -R nodejs:nodejs /app/uploads /app/logs
+# Create necessary directories for uploads, logs, and persistent data
+RUN mkdir -p /app/uploads /app/logs /app/data && \
+    chown -R nodejs:nodejs /app/uploads /app/logs /app/data
 
 # Change ownership of app directory
 RUN chown -R nodejs:nodejs /app
 USER nodejs
+
+# Persistent data volume for brass_samples.json (survives container restarts)
+VOLUME ["/app/data"]
+
+# Configurable auto-update interval (milliseconds); default 60000 = 1 min
+ENV AUTOUPDATE_INTERVAL_MS=60000
 
 # Expose application port
 EXPOSE 3000
