@@ -8,6 +8,7 @@ const fs = require('fs')
 // Import security modules
 const security = require('./utils/security.js')
 const { createAFKGuard } = require('./utils/afk-guard.js')
+const { AutoUpdater } = require('./utils/auto-updater.js')
 
 // Load environment variables
 require('dotenv').config()
@@ -230,16 +231,47 @@ function initializeApp () {
   initLocalSamplesDB()
 }
 
+// 24/7 samples DB + normalization auto-updater for Electron
+let _electronUpdater = null
+
+function startElectronAutoUpdater () {
+  _electronUpdater = new AutoUpdater({
+    readDB: readSamplesDB,
+    intervalMs: parseInt(process.env.AUTOUPDATE_INTERVAL_MS) || 60_000
+  })
+  _electronUpdater.on('update', (data) => {
+    safeLog('info', 'Auto-updater: normalization refreshed', { runCount: data.runCount })
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('normalization-update', {
+        timestamp: data.timestamp,
+        runCount: data.runCount,
+        sampleCount: data.samples.length,
+        fields: data.fields
+      })
+    }
+  })
+  _electronUpdater.on('error', (err) => {
+    safeLog('error', 'Auto-updater error', { error: err.message })
+  })
+  _electronUpdater.start()
+  safeLog('info', 'Auto-updater started', { intervalMs: _electronUpdater.status().intervalMs })
+}
+
 // Create window when Electron is ready
 app.whenReady().then(() => {
   initializeApp()
   setupSecurityHandlers()
   createWindow()
+  startElectronAutoUpdater()
 
   app.on('activate', () => {
     // On macOS, recreate window when dock icon is clicked and no windows are open
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('before-quit', () => {
+  if (_electronUpdater) _electronUpdater.stop()
 })
 
 // Set up security-related IPC handlers

@@ -17,6 +17,7 @@ const { getAllChains, getRoutingDiagram } = require('./rigs/effects-chain-manage
 const { spawnSync } = require('child_process')
 const { decodeWavBuffer, encodeWavBuffer, pcm16leToFloat32Channels, float32ChannelsToPcm16le } = require('./utils/audio-dsp/wav.js')
 const { pipeDecompressed } = require('./utils/zip-stream.js')
+const { AutoUpdater } = require('./utils/auto-updater.js')
 const { processAudio, createAudioProcessor } = require('./utils/audio-dsp/pedalboard.js')
 
 const app = express()
@@ -94,6 +95,39 @@ const cache = new NodeCache({ stdTTL: 300 }) // 5 minutes cache
 // Spotify token cache
 let spotifyToken = null
 let spotifyTokenExpiry = 0
+
+// 24/7 auto-updater: re-reads brass_samples.json and recomputes normalizations
+const SAMPLES_PATH = './brass_samples.json'
+function _readSamplesForUpdater () {
+  if (!fs.existsSync(SAMPLES_PATH)) return []
+  try {
+    const raw = fs.readFileSync(SAMPLES_PATH, 'utf8')
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : (parsed.samples || [])
+  } catch (_) {
+    return []
+  }
+}
+
+const dbAutoUpdater = new AutoUpdater({
+  readDB: _readSamplesForUpdater,
+  intervalMs: parseInt(process.env.AUTOUPDATE_INTERVAL_MS) || 60_000
+})
+
+let _latestNormState = null
+const _sseClients = new Set()
+
+dbAutoUpdater.on('update', (data) => {
+  _latestNormState = data
+  const payload = JSON.stringify({ event: 'update', data })
+  _sseClients.forEach(res => {
+    try { res.write(`data: ${payload}\n\n`) } catch (_) { }
+  })
+})
+
+dbAutoUpdater.on('error', (err) => {
+  console.error('[auto-updater] error:', err.message)
+})
 
 async function getSpotifyToken () {
   if (spotifyToken && Date.now() < spotifyTokenExpiry) {
@@ -1084,8 +1118,38 @@ app.get('/health', (req, res) => {
   })
 })
 
+// Normalization status endpoint — last refresh time, run count, interval
+app.get('/api/normalization/status', (req, res) => {
+  res.json({
+    ...dbAutoUpdater.status(),
+    sampleCount: _latestNormState ? _latestNormState.samples.length : null,
+    fields: _latestNormState ? _latestNormState.fields : null
+  })
+})
+
+// SSE endpoint — streams real-time normalization updates to any browser tab
+app.get('/api/normalization/live', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.flushHeaders()
+
+  // Send current state immediately on connect
+  if (_latestNormState) {
+    res.write(`data: ${JSON.stringify({ event: 'update', data: _latestNormState })}\n\n`)
+  }
+
+  _sseClients.add(res)
+
+  req.on('close', () => {
+    _sseClients.delete(res)
+  })
+})
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Last.fm Desktop Web Server running on http://localhost:${PORT}`)
   console.log('Open your browser to access the application')
+  dbAutoUpdater.start()
+  console.log(`[auto-updater] started — interval ${dbAutoUpdater.status().intervalMs}ms`)
 })

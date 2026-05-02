@@ -970,6 +970,18 @@ contextBridge.exposeInMainWorld('api', {
       check: securityUtils.rateLimiter.check,
       reset: securityUtils.rateLimiter.reset
     }
+  },
+
+  /**
+   * Subscribe to 24/7 normalization auto-update events from main process.
+   * @param {Function} callback - Called with { timestamp, runCount, sampleCount, fields }
+   * @returns {Function} Unsubscribe function
+   */
+  onNormalizationUpdate: (callback) => {
+    if (typeof callback !== 'function') return () => { }
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('normalization-update', handler)
+    return () => ipcRenderer.removeListener('normalization-update', handler)
   }
 });
 
