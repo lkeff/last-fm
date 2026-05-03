@@ -19,7 +19,6 @@ services:
       - .env
     volumes:
       - ./logs:/app/logs
-      - ./uploads:/app/uploads
       - ./config:/app/config
       - lastfm_data:/app/data
     healthcheck:
