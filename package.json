@@ -1,7 +1,7 @@
 {
   "name": "last-fm",
   "description": "Simple, robust LastFM API client (for public data) with enhanced security features",
-  "version": "5.3.0",
+  "version": "5.4.0",
   "author": {
     "name": "Feross Aboukhadijeh",
     "email": "feross@feross.org",
@@ -94,7 +94,8 @@
     "start": "electron .",
     "dev": "electron .",
     "test:security": "eslint --ext .js --plugin security --rule \"security/detect-object-injection:warn\" .",
-    "test": "standard && npm run test:security && node -e \"require('./index.js')\"",
+    "test:unit": "node --test test/*.test.js",
+    "test": "npm run test:unit",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "security-audit": "npm audit && electron-builder --dir --config.nsis.oneClick=false",

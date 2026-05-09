@@ -1,7 +1,7 @@
 /*! last-fm. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
-const get = require('simple-get')
 const querystring = require('querystring')
 const parallel = require('run-parallel')
+const { lastfmNetworkClient } = require('./utils/network')
 
 // Simple in-memory TTL cache for API responses
 class TTLCache {
@@ -90,23 +90,21 @@ class LastFM {
       if (cached !== undefined) return cb(null, cached)
     }
 
-    const opts = {
-      url: urlBase + '?' + queryStr,
-      headers: {
-        'User-Agent': this._userAgent
-      },
-      timeout: 30 * 1000,
-      json: true
-    }
-
     const self = this
-    get.concat(opts, function onResponse (err, res, data) {
-      if (err) return cb(err)
-      if (data.error) return cb(new Error(data.message))
+    lastfmNetworkClient.request({
+      url: urlBase + '?' + queryStr,
+      headers: { 'User-Agent': this._userAgent },
+      dedupKey: cacheKey
+    }).then(({ body }) => {
+      let data
+      try { data = JSON.parse(body.toString('utf8')) } catch (e) {
+        return cb(new Error('Last.fm returned non-JSON response'))
+      }
+      if (data.error) return cb(new Error(data.message || `Last.fm error ${data.error}`))
       const result = data[name]
       if (self._cache) self._cache.set(cacheKey, result, ttl)
       cb(null, result)
-    })
+    }).catch(cb)
   }
 
   /**

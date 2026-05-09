@@ -1,59 +1,84 @@
-# Last.fm Node.js Application — Production Ready with SA Orchestra & Claude Thinking
-# syntax=docker/dockerfile:1
-FROM node:18-alpine AS base
+# Last.fm — multi-stage production image
+# syntax=docker/dockerfile:1.7
+# ────────────────────────────────────────────────────────────────────────────
+# Stage 1 — deps: install production dependencies via pnpm
+# ────────────────────────────────────────────────────────────────────────────
+FROM node:18.20-alpine3.19 AS deps
 
-# Install system dependencies
-RUN apk add --no-cache \
-    dumb-init \
-    curl \
-    ffmpeg \
-    && rm -rf /var/cache/apk/*
+# pnpm via corepack (no npm install -g, no network fetch at build time)
+ENV PNPM_HOME="/pnpm" \
+    PATH="/pnpm:$PATH" \
+    NODE_ENV=production
 
-# ─── pnpm injection via corepack (no npm install -g) ─────────────────────────
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
-# Set working directory
-WORKDIR /app
+WORKDIR /build
 
-# Copy package files first for layer-caching
+# Copy manifests only — maximise layer-cache hits on code-only changes
 COPY package.json pnpm-lock.yaml ./
 
-# Install production dependencies
-# --no-frozen-lockfile because @anthropic-ai/sdk and discord.js were added
-# and pnpm-lock.yaml may not yet reflect the new deps in CI.
-# Switch back to --frozen-lockfile after running `pnpm install` locally.
-RUN pnpm install --prod --no-frozen-lockfile && pnpm store prune
+# --frozen-lockfile ensures reproducible installs; --prod skips devDeps
+RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 
-# Copy application code with all enhancements
+# ────────────────────────────────────────────────────────────────────────────
+# Stage 2 — runtime: minimal image with only what the app needs
+# ────────────────────────────────────────────────────────────────────────────
+FROM node:18.20-alpine3.19 AS runtime
+
+LABEL org.opencontainers.image.title="last-fm" \
+      org.opencontainers.image.description="Last.fm desktop — web server with studio enhancements" \
+      org.opencontainers.image.version="5.4.0" \
+      org.opencontainers.image.licenses="MIT"
+
+# Runtime-only system deps
+RUN apk add --no-cache \
+      dumb-init \
+      curl \
+      ffmpeg \
+    && rm -rf /var/cache/apk/*
+
+ENV PNPM_HOME="/pnpm" \
+    PATH="/pnpm:$PATH" \
+    NODE_ENV=production \
+    PORT=3000 \
+    # Configurable auto-update interval (ms)
+    AUTOUPDATE_INTERVAL_MS=60000
+
+WORKDIR /app
+
+# Copy installed node_modules from deps stage
+COPY --from=deps /build/node_modules ./node_modules
+
+# Copy application source (excluding what's in .dockerignore)
 COPY . .
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+# Non-root user for container security
+RUN addgroup -g 1001 -S nodejs \
+ && adduser  -S nodejs -u 1001 -G nodejs \
+ && mkdir -p /app/uploads /app/logs /app/data \
+ && chown -R nodejs:nodejs /app/uploads /app/logs /app/data /app
 
-# Create necessary directories for uploads, logs, and persistent data
-RUN mkdir -p /app/uploads /app/logs /app/data && \
-    chown -R nodejs:nodejs /app/uploads /app/logs /app/data
-
-# Change ownership of app directory
-RUN chown -R nodejs:nodejs /app
 USER nodejs
 
-# Persistent data volume for brass_samples.json (survives container restarts)
+# Persistent data volume (brass_samples.json survives restarts)
 VOLUME ["/app/data"]
 
-# Configurable auto-update interval (milliseconds); default 60000 = 1 min
-ENV AUTOUPDATE_INTERVAL_MS=60000
-
-# Expose application port
 EXPOSE 3000
 
-# Enhanced health check with multiple endpoints
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD node -e "const http = require('http'); http.get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
+# Comprehensive health check — verifies app + circuit-breaker status
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD node -e " \
+        const h=require('http'); \
+        h.get('http://localhost:3000/health',(r)=>{ \
+          let d=''; \
+          r.on('data',c=>d+=c); \
+          r.on('end',()=>{ \
+            const b=JSON.parse(d); \
+            process.exit(r.statusCode===200 && b.status==='healthy' ? 0 : 1); \
+          }); \
+        }).on('error',()=>process.exit(1)); \
+    "
 
-# Start application with dumb-init and production optimizations
+# dumb-init as PID 1 for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "web-server.js"]

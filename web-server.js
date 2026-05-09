@@ -19,6 +19,8 @@ const { decodeWavBuffer, encodeWavBuffer, pcm16leToFloat32Channels, float32Chann
 const { pipeDecompressed } = require('./utils/zip-stream.js')
 const { AutoUpdater } = require('./utils/auto-updater.js')
 const { processAudio, createAudioProcessor } = require('./utils/audio-dsp/pedalboard.js')
+const { parsePlaylist, generatePlaylist, lastfmTracksToPlaylist } = require('./utils/playlist.js')
+const { lastfmNetworkClient } = require('./utils/network.js')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -1111,12 +1113,104 @@ app.get('/api/lastfm/stream', async (req, res) => {
   }
 })
 
+// ─── Playlist endpoints ────────────────────────────────────────────────────
+
+/**
+ * GET /api/playlist/export
+ * Export a Last.fm user's recent or top tracks as a playlist file.
+ *
+ * Query params:
+ *   user    (required) — Last.fm username
+ *   type    — 'recent' | 'top' | 'loved'  (default: recent)
+ *   period  — 'overall' | '7day' | '1month' | '3month' | '6month' | '12month'
+ *   limit   — number of tracks (default: 50, max: 200)
+ *   format  — 'pls' | 'm3u' | 'xspf'  (default: m3u)
+ *   title   — playlist title (default: "<user>'s Last.fm tracks")
+ */
+app.get('/api/playlist/export', async (req, res) => {
+  const { user, type = 'recent', period = 'overall', format = 'm3u', title } = req.query
+  const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200)
+
+  if (!user) return res.status(400).json({ error: 'user param is required' })
+  if (!LASTFM_API_KEY) return res.status(503).json({ error: 'Last.fm API key not configured' })
+
+  try {
+    let tracks
+    await new Promise((resolve, reject) => {
+      const opts = { user, limit, period }
+      const handler = (err, data) => {
+        if (err) return reject(err)
+        tracks = data.result
+        resolve()
+      }
+      if (type === 'top') lastfm.userTopTracks(opts, handler)
+      else if (type === 'loved') lastfm.userLovedTracks(opts, handler)
+      else lastfm.userRecentTracks(opts, handler)
+    })
+
+    const playlistTracks = lastfmTracksToPlaylist(tracks)
+    const playlistTitle = title || `${user}'s Last.fm ${type} tracks`
+    const { content, contentType, ext } = generatePlaylist(playlistTracks, { format, title: playlistTitle })
+
+    res.setHeader('Content-Type', contentType)
+    res.setHeader('Content-Disposition', `attachment; filename="${user}-${type}.${ext}"`)
+    res.send(content)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+/**
+ * POST /api/playlist/import
+ * Parse an uploaded playlist file (PLS, M3U, M3U8, XSPF) and return JSON.
+ *
+ * Body: multipart/form-data with field 'playlist' (file upload)
+ *   OR application/x-www-form-urlencoded with field 'content' (raw text) + optional 'format'
+ */
+const playlistUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1 * 1024 * 1024 }, // 1 MB max for playlist files
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pls', '.m3u', '.m3u8', '.xspf', '.xml']
+    const ext = path.extname(file.originalname).toLowerCase()
+    cb(null, allowed.includes(ext))
+  }
+})
+
+app.post('/api/playlist/import', playlistUpload.single('playlist'), (req, res) => {
+  try {
+    let text, filename
+    if (req.file) {
+      text = req.file.buffer.toString('utf8')
+      filename = req.file.originalname
+    } else if (req.body && req.body.content) {
+      text = req.body.content
+      filename = req.body.filename || ''
+    } else {
+      return res.status(400).json({ error: 'No playlist data provided. Use multipart field "playlist" or body field "content".' })
+    }
+
+    const tracks = parsePlaylist(text, { filename, format: req.body && req.body.format })
+    res.json({ count: tracks.length, tracks })
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+// ─── Network stats endpoint ────────────────────────────────────────────────
+
+/** GET /api/network/stats — live circuit-breaker and request metrics */
+app.get('/api/network/stats', (req, res) => {
+  res.json(lastfmNetworkClient.stats())
+})
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    service: 'lastfm-desktop-web'
+    service: 'lastfm-desktop-web',
+    network: lastfmNetworkClient.stats().circuitBreaker
   })
 })
 
