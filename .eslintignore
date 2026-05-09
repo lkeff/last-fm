@@ -1,0 +1,11 @@
+# Build artifacts
+dist/
+node_modules/
+
+# Generated directories
+ai-video-studio/
+remastering-studio/
+
+# Package lock files
+package-lock.json
+bun.lock

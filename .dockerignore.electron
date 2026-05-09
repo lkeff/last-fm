@@ -1,0 +1,20 @@
+# Node modules
+node_modules
+
+# Git
+.git
+
+# VSCode
+.vscode
+
+# Dist
+dist
+
+# Log files
+*.log
+
+# Docker files
+Dockerfile
+Dockerfile.electron
+.dockerignore
+.dockerignore.electron
