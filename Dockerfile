@@ -27,7 +27,7 @@ FROM node:18.20-alpine3.19 AS runtime
 
 LABEL org.opencontainers.image.title="last-fm" \
       org.opencontainers.image.description="Last.fm desktop — web server with studio enhancements" \
-      org.opencontainers.image.version="5.4.0" \
+      org.opencontainers.image.version="5.5.0" \
       org.opencontainers.image.licenses="MIT"
 
 # Runtime-only system deps
