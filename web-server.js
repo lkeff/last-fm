@@ -45,6 +45,10 @@ const {
 const {
   getAboriginalAustralianRig, getAboriginalAustralianMusicianCount, getAboriginalAustralianPrincipals, getAboriginalAustralianInstruments, getAboriginalAustralianRegions
 } = require('./rigs/aboriginal-australian.js')
+const {
+  getPhilipsFw335Rig, getPhilipsFw335EqBands, getPhilipsFw335PlaybackChain,
+  getPhilipsFw335InstrumentNote, getPhilipsFw335DspModes, getPhilipsFw335OutputFormat
+} = require('./rigs/philips-fw335.js')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -1354,6 +1358,35 @@ app.get('/api/normalization/live', (req, res) => {
   req.on('close', () => {
     _sseClients.delete(res)
   })
+})
+
+// ─── Philips FW335 Output Profile ────────────────────────────────────────────
+app.get('/api/studio/philips-fw335', (req, res) => {
+  try {
+    const rig = getPhilipsFw335Rig()
+    res.json({
+      model: rig.model, brand: rig.brand,
+      amplifier: rig.amplifier, speakers: rig.speakers,
+      digitalSurroundDsp: rig.digitalSurroundDsp,
+      inputs: rig.inputs, samplerInterface: rig.samplerInterface,
+      placement: rig.placement,
+      timestamp: new Date().toISOString()
+    })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/philips-fw335/eq', (req, res) => {
+  try {
+    const bands = getPhilipsFw335EqBands()
+    const note = req.query.instrument ? getPhilipsFw335InstrumentNote(req.query.instrument) : null
+    res.json({ eqBands: bands, instrumentNote: note, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/philips-fw335/playback-chain', (req, res) => {
+  try {
+    res.json({ ...getPhilipsFw335PlaybackChain(), dspModes: getPhilipsFw335DspModes(), outputFormat: getPhilipsFw335OutputFormat(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 // ─── Professional Sampler Database API ───────────────────────────────────────

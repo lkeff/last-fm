@@ -24,6 +24,7 @@ const gamelanRig = require('./gamelan')
 const sitarRig = require('./sitar')
 const tablaRig = require('./tabla')
 const aboriginalAustralianRig = require('./aboriginal-australian')
+const philipsFw335 = require('./philips-fw335')
 
 /**
  * All available rig configurations
@@ -42,7 +43,8 @@ const RIGS = {
   gamelan: gamelanRig.GAMELAN_RIG,
   sitar: sitarRig.SITAR_RIG,
   tabla: tablaRig.TABLA_RIG,
-  aboriginalAustralian: aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG
+  aboriginalAustralian: aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG,
+  philipsFw335: philipsFw335.PHILIPS_FW335
 }
 
 /**
@@ -164,6 +166,14 @@ function getRigsSummary () {
       instruments: aboriginalAustralianRig.getAboriginalAustralianInstruments().length,
       regions: Object.keys(aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG.regionalTraditions).length
     },
+    philipsFw335: {
+      type: philipsFw335.PHILIPS_FW335.type,
+      model: philipsFw335.PHILIPS_FW335.model,
+      brand: philipsFw335.PHILIPS_FW335.brand,
+      channels: philipsFw335.PHILIPS_FW335.amplifier.channels,
+      eqBands: philipsFw335.getPhilipsFw335EqBands().length,
+      dspModes: Object.keys(philipsFw335.getPhilipsFw335DspModes()).length
+    },
     djBooth: {
       name: djBooth.DJ_BOOTH.name,
       type: djBooth.DJ_BOOTH.type,
@@ -216,6 +226,7 @@ function searchEquipment (query) {
   searchObject(RIGS.sitar, '', 'sitar')
   searchObject(RIGS.tabla, '', 'tabla')
   searchObject(RIGS.aboriginalAustralian, '', 'aboriginalAustralian')
+  searchObject(RIGS.philipsFw335, '', 'philipsFw335')
 
   return results
 }
@@ -355,6 +366,7 @@ module.exports = {
   sitarRig,
   tablaRig,
   aboriginalAustralianRig,
+  philipsFw335,
 
   // Direct access to configurations
   STUDIO_RIG: studioRig.STUDIO_RIG,
@@ -370,5 +382,6 @@ module.exports = {
   GAMELAN_RIG: gamelanRig.GAMELAN_RIG,
   SITAR_RIG: sitarRig.SITAR_RIG,
   TABLA_RIG: tablaRig.TABLA_RIG,
-  ABORIGINAL_AUSTRALIAN_RIG: aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG
+  ABORIGINAL_AUSTRALIAN_RIG: aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG,
+  PHILIPS_FW335: philipsFw335.PHILIPS_FW335
 }
