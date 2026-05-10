@@ -1389,6 +1389,113 @@ app.get('/api/studio/philips-fw335/playback-chain', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+// ─── Cross-Platform Rig EQ API ───────────────────────────────────────────────
+const rigEq = require('./utils/audio-dsp/rig-eq.js')
+
+// Return Web Audio API parameters for a rig — use in any browser or Electron
+app.get('/api/rig-eq/:rigId/web-audio-params', (req, res) => {
+  try {
+    const bands = rigEq.loadRigEqBands(req.params.rigId)
+    if (!bands) return res.status(404).json({ error: `No EQ profile for rig: ${req.params.rigId}` })
+    const sr = parseInt(req.query.sampleRate) || 44100
+    const webAudioParams = rigEq.buildWebAudioParams(bands, sr)
+    const frequencyResponse = rigEq.computeFrequencyResponse(bands, sr)
+    res.json({
+      rigId: req.params.rigId,
+      sampleRate: sr,
+      bandCount: bands.length,
+      webAudioParams,   // → feed to buildWebAudioChain() in browser
+      frequencyResponse,
+      // Inline browser snippet for immediate use
+      browserSnippet: `
+// Paste into browser DevTools or your page JS:
+const resp = await fetch('/api/rig-eq/${req.params.rigId}/web-audio-params');
+const { webAudioParams } = await resp.json();
+const ctx = new AudioContext();
+const nodes = webAudioParams.map(p => {
+  const f = ctx.createBiquadFilter();
+  f.type = p.type; f.frequency.value = p.frequency;
+  f.gain.value = p.gain; f.Q.value = p.Q;
+  return f;
+});
+for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i+1]);
+nodes[nodes.length-1].connect(ctx.destination);
+// Connect your source: source.connect(nodes[0]);
+`.trim(),
+      timestamp: new Date().toISOString()
+    })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Frequency response curve for a rig EQ (for plotting)
+app.get('/api/rig-eq/:rigId/frequency-response', (req, res) => {
+  try {
+    const bands = rigEq.loadRigEqBands(req.params.rigId)
+    if (!bands) return res.status(404).json({ error: `No EQ profile for rig: ${req.params.rigId}` })
+    const sr = parseInt(req.query.sampleRate) || 44100
+    res.json({ rigId: req.params.rigId, sampleRate: sr, curve: rigEq.computeFrequencyResponse(bands, sr), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Server-side EQ processing — upload WAV, get processed WAV back
+// Works on Mac, Windows, Linux — the processing runs on the Node.js server
+app.post('/api/rig-eq/:rigId/process', (req, res) => {
+  try {
+    const bands = rigEq.loadRigEqBands(req.params.rigId)
+    if (!bands) return res.status(404).json({ error: `No EQ profile for rig: ${req.params.rigId}` })
+
+    const contentType = req.headers['content-type'] || ''
+    if (!contentType.includes('audio/') && !contentType.includes('application/octet-stream')) {
+      return res.status(400).json({ error: 'Send a WAV file as request body (Content-Type: audio/wav)' })
+    }
+
+    const chunks = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      try {
+        const buf = Buffer.concat(chunks)
+        const decoded = decodeWavBuffer(buf)
+        if (!decoded) return res.status(400).json({ error: 'Could not decode WAV file' })
+
+        const { sampleRate, channelData } = decoded
+        const interleaved = float32ChannelsToPcm16le(channelData)
+        const numChannels = channelData.length
+
+        // Convert to float32 for EQ processing
+        const floatInterleaved = new Float32Array(interleaved.length)
+        for (let i = 0; i < interleaved.length; i++) floatInterleaved[i] = interleaved[i] / 32767
+
+        const processed = rigEq.applyEqToBuffer(floatInterleaved, numChannels, sampleRate, bands)
+
+        // Convert back to int16 and encode
+        const outInt16 = new Int16Array(processed.length)
+        for (let i = 0; i < processed.length; i++) {
+          outInt16[i] = Math.round(Math.max(-1, Math.min(1, processed[i])) * 32767)
+        }
+        const outChannelData = []
+        for (let ch = 0; ch < numChannels; ch++) {
+          const chData = new Float32Array(outInt16.length / numChannels)
+          for (let i = 0; i < chData.length; i++) chData[i] = outInt16[i * numChannels + ch] / 32767
+          outChannelData.push(chData)
+        }
+        const outWav = encodeWavBuffer({ sampleRate, channelData: outChannelData })
+        res.set({ 'Content-Type': 'audio/wav', 'Content-Disposition': `attachment; filename="${req.params.rigId}-eq-processed.wav"` })
+        res.send(Buffer.from(outWav))
+      } catch (e) { res.status(500).json({ error: e.message }) }
+    })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// List all rigs that have EQ profiles
+app.get('/api/rig-eq', (req, res) => {
+  try {
+    const profiles = [
+      { rigId: 'philips-fw335', name: 'Philips FW335', bands: rigEq.loadRigEqBands('philips-fw335').length }
+    ]
+    res.json({ profiles, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 // ─── Rig Detector API ────────────────────────────────────────────────────────
 const rigDetector = require('./utils/rig-detector.js')
 const { getSignatures } = require('./db/rig-signatures.js')
