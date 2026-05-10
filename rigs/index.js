@@ -16,6 +16,10 @@ const orchestra = require('./orchestra')
 const djBooth = require('./dj-booth')
 const southAmericanOrchestra = require('./south-american-orchestra')
 const romanOdysseyOrchestra = require('./roman-odyssey-orchestra')
+const lyreRig = require('./lyre')
+const bagpipesRig = require('./bagpipes')
+const synthStringsRig = require('./synth-strings')
+const balkanOrchestra = require('./balkan-orchestra')
 
 /**
  * All available rig configurations
@@ -26,7 +30,11 @@ const RIGS = {
   orchestra: orchestra.ORCHESTRA,
   djBooth: djBooth.DJ_BOOTH,
   southAmericanOrchestra: southAmericanOrchestra.SA_ORCHESTRA,
-  romanOdysseyOrchestra: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA
+  romanOdysseyOrchestra: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA,
+  lyre: lyreRig.LYRE_RIG,
+  bagpipes: bagpipesRig.BAGPIPES_RIG,
+  synthStrings: synthStringsRig.SYNTH_STRINGS_RIG,
+  balkanOrchestra: balkanOrchestra.BALKAN_ORCHESTRA
 }
 
 /**
@@ -91,6 +99,37 @@ function getRigsSummary () {
       sections: romanOdysseyOrchestra.getRomanOdysseyMusicianCount(),
       principals: romanOdysseyOrchestra.getRomanOdysseyPrincipals().length
     },
+    lyre: {
+      name: lyreRig.LYRE_RIG.name,
+      type: lyreRig.LYRE_RIG.type,
+      totalPlayers: lyreRig.LYRE_RIG.totalPlayers,
+      sections: lyreRig.getLyrePlayerCount(),
+      instruments: lyreRig.getLyreInstruments().length,
+      principals: lyreRig.getLyrePrincipals().length
+    },
+    bagpipes: {
+      name: bagpipesRig.BAGPIPES_RIG.name,
+      type: bagpipesRig.BAGPIPES_RIG.type,
+      totalPlayers: bagpipesRig.BAGPIPES_RIG.totalPlayers,
+      sections: bagpipesRig.getBagpipesPlayerCount(),
+      instruments: bagpipesRig.getBagpipesInstruments().length,
+      principals: bagpipesRig.getBagpipesPrincipals().length
+    },
+    synthStrings: {
+      name: synthStringsRig.SYNTH_STRINGS_RIG.name,
+      type: synthStringsRig.SYNTH_STRINGS_RIG.type,
+      totalUnits: synthStringsRig.SYNTH_STRINGS_RIG.totalUnits,
+      sections: synthStringsRig.getSynthUnitsCount(),
+      presets: synthStringsRig.getSynthPatchPresets().length
+    },
+    balkanOrchestra: {
+      name: balkanOrchestra.BALKAN_ORCHESTRA.name,
+      type: balkanOrchestra.BALKAN_ORCHESTRA.type,
+      totalMusicians: balkanOrchestra.BALKAN_ORCHESTRA.totalMusicians,
+      sections: balkanOrchestra.getBalkanMusicianCount(),
+      principals: balkanOrchestra.getBalkanPrincipals().length,
+      instruments: balkanOrchestra.getBalkanInstruments().length
+    },
     djBooth: {
       name: djBooth.DJ_BOOTH.name,
       type: djBooth.DJ_BOOTH.type,
@@ -135,6 +174,10 @@ function searchEquipment (query) {
   searchObject(RIGS.djBooth, '', 'djBooth')
   searchObject(RIGS.southAmericanOrchestra, '', 'southAmericanOrchestra')
   searchObject(RIGS.romanOdysseyOrchestra, '', 'romanOdysseyOrchestra')
+  searchObject(RIGS.lyre, '', 'lyre')
+  searchObject(RIGS.bagpipes, '', 'bagpipes')
+  searchObject(RIGS.synthStrings, '', 'synthStrings')
+  searchObject(RIGS.balkanOrchestra, '', 'balkanOrchestra')
 
   return results
 }
@@ -266,6 +309,10 @@ module.exports = {
   djBooth,
   southAmericanOrchestra,
   romanOdysseyOrchestra,
+  lyreRig,
+  bagpipesRig,
+  synthStringsRig,
+  balkanOrchestra,
 
   // Direct access to configurations
   STUDIO_RIG: studioRig.STUDIO_RIG,
@@ -273,5 +320,9 @@ module.exports = {
   ORCHESTRA: orchestra.ORCHESTRA,
   DJ_BOOTH: djBooth.DJ_BOOTH,
   SA_ORCHESTRA: southAmericanOrchestra.SA_ORCHESTRA,
-  ROMAN_ODYSSEY_ORCHESTRA: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA
+  ROMAN_ODYSSEY_ORCHESTRA: romanOdysseyOrchestra.ROMAN_ODYSSEY_ORCHESTRA,
+  LYRE_RIG: lyreRig.LYRE_RIG,
+  BAGPIPES_RIG: bagpipesRig.BAGPIPES_RIG,
+  SYNTH_STRINGS_RIG: synthStringsRig.SYNTH_STRINGS_RIG,
+  BALKAN_ORCHESTRA: balkanOrchestra.BALKAN_ORCHESTRA
 }

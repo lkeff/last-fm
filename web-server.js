@@ -21,6 +21,18 @@ const { AutoUpdater } = require('./utils/auto-updater.js')
 const { processAudio, createAudioProcessor } = require('./utils/audio-dsp/pedalboard.js')
 const { parsePlaylist, generatePlaylist, lastfmTracksToPlaylist } = require('./utils/playlist.js')
 const { lastfmNetworkClient } = require('./utils/network.js')
+const {
+  getLyreRig, getLyrePlayerCount, getLyrePrincipals, getLyreInstruments, getLyreRepertoire
+} = require('./rigs/lyre.js')
+const {
+  getBagpipesRig, getBagpipesPlayerCount, getBagpipesPrincipals, getBagpipesInstruments, getBagpipesRepertoire
+} = require('./rigs/bagpipes.js')
+const {
+  getSynthStringsRig, getSynthUnitsCount, getSynthInstruments, getSynthPatchPresets, getSynthMidiZones
+} = require('./rigs/synth-strings.js')
+const {
+  getBalkanOrchestra, getBalkanMusicianCount, getBalkanPrincipals, getBalkanInstruments, getBalkanRhythmReference, getBalkanRepertoire
+} = require('./rigs/balkan-orchestra.js')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -984,6 +996,56 @@ app.get('/api/studio/midi', (req, res) => {
   } catch (error) {
     res.json({ error: error.message })
   }
+})
+
+// ─── Lyre endpoints ────────────────────────────────────────────────────────
+
+app.get('/api/studio/lyre', (req, res) => {
+  try {
+    res.json({ rig: getLyreRig(), players: getLyrePlayerCount(), principals: getLyrePrincipals(), instruments: getLyreInstruments(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/lyre/repertoire', (req, res) => {
+  try {
+    res.json({ repertoire: getLyreRepertoire(req.query.style || null), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ─── Bagpipes endpoints ────────────────────────────────────────────────────
+
+app.get('/api/studio/bagpipes', (req, res) => {
+  try {
+    res.json({ rig: getBagpipesRig(), players: getBagpipesPlayerCount(), principals: getBagpipesPrincipals(), instruments: getBagpipesInstruments(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/bagpipes/repertoire', (req, res) => {
+  try {
+    res.json({ repertoire: getBagpipesRepertoire(req.query.region || null), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ─── Synth strings endpoints ───────────────────────────────────────────────
+
+app.get('/api/studio/synth-strings', (req, res) => {
+  try {
+    res.json({ rig: getSynthStringsRig(), units: getSynthUnitsCount(), instruments: getSynthInstruments(), presets: getSynthPatchPresets(), midiZones: getSynthMidiZones(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ─── Balkan orchestra endpoints ────────────────────────────────────────────
+
+app.get('/api/studio/balkan-orchestra', (req, res) => {
+  try {
+    res.json({ rig: getBalkanOrchestra(), musicians: getBalkanMusicianCount(), principals: getBalkanPrincipals(), instruments: getBalkanInstruments(), rhythmReference: getBalkanRhythmReference(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/balkan-orchestra/repertoire', (req, res) => {
+  try {
+    res.json({ repertoire: getBalkanRepertoire(req.query.region || null), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 // Monster Cable Inventory Endpoint - NEW FEATURE
