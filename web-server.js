@@ -1389,6 +1389,79 @@ app.get('/api/studio/philips-fw335/playback-chain', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+// ─── Rig Detector API ────────────────────────────────────────────────────────
+const rigDetector = require('./utils/rig-detector.js')
+const { getSignatures } = require('./db/rig-signatures.js')
+
+// List all known signatures
+app.get('/api/detect/signatures', (req, res) => {
+  try {
+    const sigs = getSignatures().map(s => ({
+      id: s.id, brand: s.brand, model: s.model, series: s.series,
+      rigModule: s.rigModule,
+      boardCodeCount: s.boardCodes.length,
+      icFamilies: Object.keys(s.icCodes),
+      acousticProfile: { bassRolloff3db: s.acoustic.bassRolloff3db, trebleRolloff3db: s.acoustic.trebleRolloff3db, thdAtReference: s.acoustic.thdAtReference }
+    }))
+    res.json({ signatures: sigs, count: sigs.length, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Download test sweep WAV for recording
+app.get('/api/detect/sweep.wav', (req, res) => {
+  try {
+    const duration = Math.min(parseFloat(req.query.duration) || 10, 30)
+    const sr = parseInt(req.query.sampleRate) || 44100
+    const f1 = parseFloat(req.query.f1) || 20
+    const f2 = parseFloat(req.query.f2) || 20000
+    const sweep = rigDetector.generateLogSweep(duration, sr, f1, f2)
+    const wav = rigDetector.sweepToWav(sweep, sr)
+    res.set({ 'Content-Type': 'audio/wav', 'Content-Disposition': `attachment; filename="rig-sweep-${sr}hz-${duration}s.wav"` })
+    res.send(wav)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Detect by board / PCB service code
+app.post('/api/detect/board-code', (req, res) => {
+  try {
+    const { code } = req.body
+    if (!code) return res.status(400).json({ error: 'body.code is required' })
+    const result = rigDetector.detectByBoardCode(code)
+    res.json({ ...result, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Detect by IC part numbers
+app.post('/api/detect/ic-codes', (req, res) => {
+  try {
+    const { icCodes } = req.body
+    if (!icCodes) return res.status(400).json({ error: 'body.icCodes is required' })
+    const result = rigDetector.detectByIcCodes(icCodes)
+    res.json({ ...result, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Detect by acoustic data (JSON PCM array)
+app.post('/api/detect/acoustic', (req, res) => {
+  try {
+    const { pcmData, sampleRate } = req.body
+    if (!Array.isArray(pcmData) || !pcmData.length) {
+      return res.status(400).json({ error: 'body.pcmData must be a non-empty float32 array' })
+    }
+    const result = rigDetector.detectByAcoustic(pcmData, sampleRate || 44100)
+    res.json({ ...result, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Fused multi-evidence detection
+app.post('/api/detect', (req, res) => {
+  try {
+    const { boardCode, icCodes, pcmData, sampleRate } = req.body
+    const result = rigDetector.detect({ boardCode, icCodes, pcmData, sampleRate })
+    res.json({ ...result, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 // ─── Professional Sampler Database API ───────────────────────────────────────
 let sampleStore = null
 function getSampleStore () {
