@@ -20,6 +20,10 @@ const lyreRig = require('./lyre')
 const bagpipesRig = require('./bagpipes')
 const synthStringsRig = require('./synth-strings')
 const balkanOrchestra = require('./balkan-orchestra')
+const gamelanRig = require('./gamelan')
+const sitarRig = require('./sitar')
+const tablaRig = require('./tabla')
+const aboriginalAustralianRig = require('./aboriginal-australian')
 
 /**
  * All available rig configurations
@@ -34,7 +38,11 @@ const RIGS = {
   lyre: lyreRig.LYRE_RIG,
   bagpipes: bagpipesRig.BAGPIPES_RIG,
   synthStrings: synthStringsRig.SYNTH_STRINGS_RIG,
-  balkanOrchestra: balkanOrchestra.BALKAN_ORCHESTRA
+  balkanOrchestra: balkanOrchestra.BALKAN_ORCHESTRA,
+  gamelan: gamelanRig.GAMELAN_RIG,
+  sitar: sitarRig.SITAR_RIG,
+  tabla: tablaRig.TABLA_RIG,
+  aboriginalAustralian: aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG
 }
 
 /**
@@ -130,6 +138,32 @@ function getRigsSummary () {
       principals: balkanOrchestra.getBalkanPrincipals().length,
       instruments: balkanOrchestra.getBalkanInstruments().length
     },
+    gamelan: {
+      type: gamelanRig.GAMELAN_RIG.type,
+      totalMusicians: gamelanRig.GAMELAN_RIG.totalMusicians,
+      sections: gamelanRig.getGamelanPlayerCount(),
+      principals: gamelanRig.getGamelanPrincipals().length,
+      instruments: gamelanRig.getGamelanInstruments().length
+    },
+    sitar: {
+      type: sitarRig.SITAR_RIG.type,
+      totalMusicians: sitarRig.SITAR_RIG.totalMusicians,
+      principals: sitarRig.getSitarPrincipals().length,
+      instruments: sitarRig.getSitarInstruments().length
+    },
+    tabla: {
+      type: tablaRig.TABLA_RIG.type,
+      totalMusicians: tablaRig.TABLA_RIG.totalMusicians,
+      gharanas: Object.keys(tablaRig.TABLA_RIG.gharanas).length,
+      taals: Object.keys(tablaRig.TABLA_RIG.taals).length
+    },
+    aboriginalAustralian: {
+      type: aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG.type,
+      totalMusicians: aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG.totalMusicians,
+      principals: aboriginalAustralianRig.getAboriginalAustralianPrincipals().length,
+      instruments: aboriginalAustralianRig.getAboriginalAustralianInstruments().length,
+      regions: Object.keys(aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG.regionalTraditions).length
+    },
     djBooth: {
       name: djBooth.DJ_BOOTH.name,
       type: djBooth.DJ_BOOTH.type,
@@ -178,6 +212,10 @@ function searchEquipment (query) {
   searchObject(RIGS.bagpipes, '', 'bagpipes')
   searchObject(RIGS.synthStrings, '', 'synthStrings')
   searchObject(RIGS.balkanOrchestra, '', 'balkanOrchestra')
+  searchObject(RIGS.gamelan, '', 'gamelan')
+  searchObject(RIGS.sitar, '', 'sitar')
+  searchObject(RIGS.tabla, '', 'tabla')
+  searchObject(RIGS.aboriginalAustralian, '', 'aboriginalAustralian')
 
   return results
 }
@@ -313,6 +351,10 @@ module.exports = {
   bagpipesRig,
   synthStringsRig,
   balkanOrchestra,
+  gamelanRig,
+  sitarRig,
+  tablaRig,
+  aboriginalAustralianRig,
 
   // Direct access to configurations
   STUDIO_RIG: studioRig.STUDIO_RIG,
@@ -324,5 +366,9 @@ module.exports = {
   LYRE_RIG: lyreRig.LYRE_RIG,
   BAGPIPES_RIG: bagpipesRig.BAGPIPES_RIG,
   SYNTH_STRINGS_RIG: synthStringsRig.SYNTH_STRINGS_RIG,
-  BALKAN_ORCHESTRA: balkanOrchestra.BALKAN_ORCHESTRA
+  BALKAN_ORCHESTRA: balkanOrchestra.BALKAN_ORCHESTRA,
+  GAMELAN_RIG: gamelanRig.GAMELAN_RIG,
+  SITAR_RIG: sitarRig.SITAR_RIG,
+  TABLA_RIG: tablaRig.TABLA_RIG,
+  ABORIGINAL_AUSTRALIAN_RIG: aboriginalAustralianRig.ABORIGINAL_AUSTRALIAN_RIG
 }

@@ -33,6 +33,18 @@ const {
 const {
   getBalkanOrchestra, getBalkanMusicianCount, getBalkanPrincipals, getBalkanInstruments, getBalkanRhythmReference, getBalkanRepertoire
 } = require('./rigs/balkan-orchestra.js')
+const {
+  getGamelanRig, getGamelanPlayerCount, getGamelanPrincipals, getGamelanInstruments, getGamelanTuningSystem, getGamelanRepertoire
+} = require('./rigs/gamelan.js')
+const {
+  getSitarRig, getSitarMusicianCount, getSitarPrincipals, getSitarInstruments, getSitarRagas, getSitarGharanas
+} = require('./rigs/sitar.js')
+const {
+  getTablaRig, getTablaDrums, getTablaGharanas, getTablaTaals, getTablaBols
+} = require('./rigs/tabla.js')
+const {
+  getAboriginalAustralianRig, getAboriginalAustralianMusicianCount, getAboriginalAustralianPrincipals, getAboriginalAustralianInstruments, getAboriginalAustralianRegions
+} = require('./rigs/aboriginal-australian.js')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -1045,6 +1057,46 @@ app.get('/api/studio/balkan-orchestra', (req, res) => {
 app.get('/api/studio/balkan-orchestra/repertoire', (req, res) => {
   try {
     res.json({ repertoire: getBalkanRepertoire(req.query.region || null), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/gamelan', (req, res) => {
+  try {
+    const rig = getGamelanRig()
+    res.json({ type: rig.type, totalMusicians: rig.totalMusicians, playerCount: getGamelanPlayerCount(), principals: getGamelanPrincipals(), instruments: getGamelanInstruments(), tuning: getGamelanTuningSystem(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/gamelan/repertoire', (req, res) => {
+  try {
+    res.json({ repertoire: getGamelanRepertoire(req.query.style || null), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/sitar', (req, res) => {
+  try {
+    const rig = getSitarRig()
+    res.json({ type: rig.type, totalMusicians: rig.totalMusicians, musicianCount: getSitarMusicianCount(), principals: getSitarPrincipals(), instruments: getSitarInstruments(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/sitar/ragas', (req, res) => {
+  try {
+    res.json({ ragas: getSitarRagas(), gharanas: getSitarGharanas(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/tabla', (req, res) => {
+  try {
+    const rig = getTablaRig()
+    res.json({ type: rig.type, drums: getTablaDrums(), bols: getTablaBols(), taals: getTablaTaals(), gharanas: getTablaGharanas(), timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/studio/aboriginal-australian', (req, res) => {
+  try {
+    const rig = getAboriginalAustralianRig()
+    res.json({ type: rig.type, totalMusicians: rig.totalMusicians, musicianCount: getAboriginalAustralianMusicianCount(), principals: getAboriginalAustralianPrincipals(), instruments: getAboriginalAustralianInstruments(), regions: getAboriginalAustralianRegions(), timestamp: new Date().toISOString() })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
