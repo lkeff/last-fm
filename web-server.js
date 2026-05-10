@@ -1356,6 +1356,186 @@ app.get('/api/normalization/live', (req, res) => {
   })
 })
 
+// ─── Professional Sampler Database API ───────────────────────────────────────
+let sampleStore = null
+function getSampleStore () {
+  if (!sampleStore) {
+    try { sampleStore = require('./services/sample-store.js') } catch (_) {}
+  }
+  return sampleStore
+}
+
+// Health / stats
+app.get('/api/sampler/health', async (req, res) => {
+  try {
+    const db = require('./utils/sampler-db.js')
+    const health = await db.healthCheck()
+    res.json({ sampler: health, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(503).json({ error: err.message }) }
+})
+
+app.get('/api/sampler/stats', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const stats = await store.getLibraryStats()
+    res.json({ ...stats, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Sample Packs
+app.post('/api/sampler/packs', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const pack = await store.createPack(req.body)
+    res.status(201).json(pack)
+  } catch (err) { res.status(400).json({ error: err.message }) }
+})
+
+app.get('/api/sampler/packs', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const packs = await store.listPacks({
+      limit: Math.min(parseInt(req.query.limit) || 50, 500),
+      offset: parseInt(req.query.offset) || 0,
+      category: req.query.category || undefined,
+      search: req.query.search || undefined
+    })
+    res.json({ packs, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/sampler/packs/:id', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const pack = await store.getPack(req.params.id)
+    if (!pack) return res.status(404).json({ error: 'Pack not found' })
+    res.json(pack)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.delete('/api/sampler/packs/:id', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const deleted = await store.removePack(req.params.id)
+    if (!deleted) return res.status(404).json({ error: 'Pack not found' })
+    res.json({ deleted: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Samples
+app.post('/api/sampler/samples', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const sample = await store.registerSample(req.body)
+    res.status(201).json(sample)
+  } catch (err) { res.status(400).json({ error: err.message }) }
+})
+
+app.get('/api/sampler/samples', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const q = req.query
+    const samples = await store.listSamples({
+      packId: q.packId || undefined,
+      category: q.category || undefined,
+      musicalKey: q.key || undefined,
+      minBpm: q.minBpm ? parseFloat(q.minBpm) : undefined,
+      maxBpm: q.maxBpm ? parseFloat(q.maxBpm) : undefined,
+      format: q.format || undefined,
+      search: q.search || undefined,
+      tags: q.tags ? q.tags.split(',') : undefined,
+      limit: Math.min(parseInt(q.limit) || 100, 1000),
+      offset: parseInt(q.offset) || 0
+    })
+    res.json({ samples, count: samples.length, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/sampler/samples/:id', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const sample = await store.getSample(req.params.id)
+    if (!sample) return res.status(404).json({ error: 'Sample not found' })
+    res.json(sample)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.delete('/api/sampler/samples/:id', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const deleted = await store.removeSample(req.params.id)
+    if (!deleted) return res.status(404).json({ error: 'Sample not found' })
+    res.json({ deleted: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// AI Analysis
+app.post('/api/sampler/samples/:id/analyze', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const analysis = await store.runAnalysis(req.params.id)
+    res.json({ analysis, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/api/sampler/samples/:id/analysis', async (req, res) => {
+  try {
+    const db = require('./utils/sampler-db.js')
+    const analysis = await db.getAnalysis(req.params.id)
+    if (!analysis) return res.status(404).json({ error: 'Analysis not found' })
+    res.json(analysis)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// AI Studio bridge: queue pending analyses, return waveform
+app.get('/api/sampler/analyses/pending', async (req, res) => {
+  try {
+    const db = require('./utils/sampler-db.js')
+    const pending = await db.getPendingAnalyses(parseInt(req.query.limit) || 20)
+    res.json({ pending, count: pending.length, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// Collections
+app.post('/api/sampler/collections', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const col = await store.createCollection(req.body)
+    res.status(201).json(col)
+  } catch (err) { res.status(400).json({ error: err.message }) }
+})
+
+app.post('/api/sampler/collections/:id/samples', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const item = await store.addSampleToCollection(
+      req.params.id, req.body.sampleId, req.body.position || 0
+    )
+    res.status(201).json(item)
+  } catch (err) { res.status(400).json({ error: err.message }) }
+})
+
+app.get('/api/sampler/collections/:id/samples', async (req, res) => {
+  try {
+    const store = getSampleStore()
+    if (!store) return res.status(503).json({ error: 'Sampler service unavailable' })
+    const samples = await store.getCollectionContents(req.params.id)
+    res.json({ samples, count: samples.length, timestamp: new Date().toISOString() })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Last.fm Desktop Web Server running on http://localhost:${PORT}`)

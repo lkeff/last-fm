@@ -1,7 +1,7 @@
 {
   "name": "last-fm",
   "description": "Simple, robust LastFM API client (for public data) with enhanced security features",
-  "version": "5.4.0",
+  "version": "5.5.0",
   "author": {
     "name": "Feross Aboukhadijeh",
     "email": "feross@feross.org",
@@ -61,6 +61,7 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
+    "pg": "^8.13.3",
     "axios": "^1.13.2",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
