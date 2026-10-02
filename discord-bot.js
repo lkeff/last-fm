@@ -1,0 +1,169 @@
+/*
+ * Last.fm Discord Bot
+ * Provides a /countdown slash command backed by utils/countdown.js.
+ *
+ * Required env: DISCORD_TOKEN
+ * Optional env: DISCORD_GUILD_ID (register commands to one guild for instant updates),
+ *               COUNTDOWN_ALERTS (comma-separated seconds, default 60,30,10),
+ *               COUNTDOWN_MAX_HOURS (default 24), COUNTDOWN_MAX_PER_USER (default 5)
+ */
+require('dotenv').config()
+
+const {
+  Client,
+  Events,
+  GatewayIntentBits,
+  MessageFlags,
+  SlashCommandBuilder
+} = require('discord.js')
+const { CountdownManager, formatDuration } = require('./utils/countdown')
+
+const token = process.env.DISCORD_TOKEN
+if (!token) {
+  console.error('DISCORD_TOKEN is not set. Copy .env.example to .env and add your bot token.')
+  process.exit(1)
+}
+
+const alertsAt = (process.env.COUNTDOWN_ALERTS || '60,30,10')
+  .split(',')
+  .map(s => Number(s.trim()))
+  .filter(n => Number.isFinite(n) && n > 0)
+
+const countdowns = new CountdownManager({
+  alertsAt,
+  maxDurationMs: (Number(process.env.COUNTDOWN_MAX_HOURS) || 24) * 60 * 60 * 1000,
+  maxPerOwner: Number(process.env.COUNTDOWN_MAX_PER_USER) || 5
+})
+
+const countdownCommand = new SlashCommandBuilder()
+  .setName('countdown')
+  .setDescription('Countdown timers')
+  .addSubcommand(sub => sub
+    .setName('start')
+    .setDescription('Start a countdown in this channel')
+    .addStringOption(opt => opt
+      .setName('duration')
+      .setDescription('e.g. 90, 45s, 5m, 1h30m, 1:30')
+      .setRequired(true))
+    .addStringOption(opt => opt
+      .setName('label')
+      .setDescription('What the countdown is for')
+      .setMaxLength(100)))
+  .addSubcommand(sub => sub
+    .setName('list')
+    .setDescription('List active countdowns in this channel'))
+  .addSubcommand(sub => sub
+    .setName('cancel')
+    .setDescription('Cancel one of your countdowns')
+    .addIntegerOption(opt => opt
+      .setName('id')
+      .setDescription('Countdown ID (see /countdown list)')
+      .setRequired(true)
+      .setMinValue(1)))
+
+const client = new Client({ intents: [GatewayIntentBits.Guilds] })
+
+function timerName (timer) {
+  return timer.label ? `#${timer.id} **${timer.label}**` : `#${timer.id}`
+}
+
+function unixSeconds (ms) {
+  return Math.floor(ms / 1000)
+}
+
+async function sendToChannel (timer, payload) {
+  try {
+    const channel = await client.channels.fetch(timer.channelId)
+    if (channel && channel.isTextBased()) await channel.send(payload)
+  } catch (err) {
+    console.error(`Failed to post update for countdown #${timer.id}:`, err.message)
+  }
+}
+
+countdowns.on('alert', (timer, remainingMs) => {
+  sendToChannel(timer, {
+    content: `Countdown ${timerName(timer)}: ${formatDuration(remainingMs)} remaining`,
+    allowedMentions: { parse: [] }
+  })
+})
+
+countdowns.on('finish', (timer) => {
+  sendToChannel(timer, {
+    content: `<@${timer.ownerId}> Countdown ${timerName(timer)} is done!`,
+    allowedMentions: { users: [timer.ownerId] }
+  })
+})
+
+async function handleStart (interaction) {
+  const timer = countdowns.start({
+    duration: interaction.options.getString('duration', true),
+    label: interaction.options.getString('label') || '',
+    ownerId: interaction.user.id,
+    channelId: interaction.channelId
+  })
+  await interaction.reply({
+    content: `Countdown ${timerName(timer)} started for ${formatDuration(timer.durationMs)}, ends <t:${unixSeconds(timer.endsAt)}:R>.`,
+    allowedMentions: { parse: [] }
+  })
+}
+
+async function handleList (interaction) {
+  const timers = countdowns.list({ channelId: interaction.channelId })
+  const content = timers.length === 0
+    ? 'No active countdowns in this channel.'
+    : timers
+      .map(t => `${timerName(t)} by <@${t.ownerId}>, ends <t:${unixSeconds(t.endsAt)}:R>`)
+      .join('\n')
+  await interaction.reply({ content, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } })
+}
+
+async function handleCancel (interaction) {
+  const id = interaction.options.getInteger('id', true)
+  const timer = countdowns.get(id)
+  const cancelled = countdowns.cancel(id, interaction.user.id)
+  if (cancelled) {
+    await interaction.reply({ content: `Cancelled countdown ${timerName(timer)}.`, allowedMentions: { parse: [] } })
+  } else {
+    await interaction.reply({ content: `You have no active countdown with ID ${id}.`, flags: MessageFlags.Ephemeral })
+  }
+}
+
+client.once(Events.ClientReady, async (readyClient) => {
+  const guildId = process.env.DISCORD_GUILD_ID
+  const commands = [countdownCommand.toJSON()]
+  if (guildId) {
+    await readyClient.application.commands.set(commands, guildId)
+  } else {
+    await readyClient.application.commands.set(commands)
+  }
+  console.log(`Logged in as ${readyClient.user.tag}; /countdown registered ${guildId ? `to guild ${guildId}` : 'globally'}.`)
+})
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand() || interaction.commandName !== 'countdown') return
+  try {
+    switch (interaction.options.getSubcommand()) {
+      case 'start': return await handleStart(interaction)
+      case 'list': return await handleList(interaction)
+      case 'cancel': return await handleCancel(interaction)
+    }
+  } catch (err) {
+    const payload = { content: `Error: ${err.message}`, flags: MessageFlags.Ephemeral }
+    if (interaction.replied || interaction.deferred) await interaction.followUp(payload).catch(() => {})
+    else await interaction.reply(payload).catch(() => {})
+  }
+})
+
+function shutdown () {
+  countdowns.cancelAll()
+  client.destroy()
+  process.exit(0)
+}
+
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
+
+client.login(token).catch((err) => {
+  console.error('Discord login failed:', err.message)
+  process.exit(1)
+})

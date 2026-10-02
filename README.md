@@ -24,6 +24,7 @@ A cross-platform desktop application built with [Electron](https://www.electronj
 - [Configuration](#configuration)
   - [Security Configuration](#security-configuration)
 - [Running the App](#running-the-app)
+- [Countdown Timers](#countdown-timers)
 - [UI Overview](#ui-overview)
 - [Data Normalization](#data-normalization)
 - [Brass Stabs Management](#brass-stabs-management)
@@ -169,6 +170,26 @@ The app window will open. On macOS, you can also run:
 npm run dev
 ```
 which sets `NODE_ENV=development` to auto-open DevTools.
+
+---
+
+## Countdown Timers
+
+Countdown timers share one engine (`utils/countdown.js`) and are available in both bots. Durations accept `90`, `45s`, `5m`, `1h30m` or `1:30`. Alerts fire at 60s, 30s and 10s remaining (configurable via `COUNTDOWN_ALERTS`).
+
+**CLI bot** (`npm run bot`): menu options 6 (start), 7 (list) and 8 (cancel).
+
+**Discord bot** (`npm run discord-bot`, requires `DISCORD_TOKEN`):
+
+| Command | Description |
+| --- | --- |
+| `/countdown start duration:<d> [label]` | Start a countdown in the current channel |
+| `/countdown list` | List active countdowns in the channel |
+| `/countdown cancel id:<n>` | Cancel one of your own countdowns |
+
+Set `DISCORD_GUILD_ID` to register the command to a single server instantly; otherwise it is registered globally. Limits: `COUNTDOWN_MAX_HOURS` (default 24) and `COUNTDOWN_MAX_PER_USER` (default 5). Timers are held in memory and are cleared when the bot restarts.
+
+Run the unit tests with `npm run test:unit`.
 
 ---
 

@@ -5,6 +5,7 @@
 
 const LastFM = require('./index.js');
 const readline = require('readline');
+const { CountdownManager, formatDuration } = require('./utils/countdown');
 
 // You need to provide your Last.fm API key here
 // Get one from: https://www.last.fm/api/account/create
@@ -12,6 +13,20 @@ const API_KEY = 'YOUR_LAST_FM_API_KEY';
 
 // Create a Last.fm client instance
 const lastfm = new LastFM(API_KEY);
+
+const countdowns = new CountdownManager();
+
+function timerName(timer) {
+  return timer.label ? `#${timer.id} "${timer.label}"` : `#${timer.id}`;
+}
+
+countdowns.on('alert', (timer, remainingMs) => {
+  console.log(`\n[Countdown ${timerName(timer)}] ${formatDuration(remainingMs)} remaining`);
+});
+
+countdowns.on('finish', (timer) => {
+  console.log(`\n\u0007[Countdown ${timerName(timer)}] Time's up!`);
+});
 
 // Create readline interface for user input
 const rl = readline.createInterface({
@@ -27,6 +42,9 @@ function showMenu() {
   console.log('3. Get top tracks for an artist');
   console.log('4. Search for a track');
   console.log('5. Get chart top artists');
+  console.log('6. Start a countdown timer');
+  console.log('7. List active countdowns');
+  console.log('8. Cancel a countdown');
   console.log('0. Exit');
   
   rl.question('\nEnter your choice: ', (choice) => {
@@ -46,7 +64,17 @@ function showMenu() {
       case '5':
         getChartTopArtists();
         break;
+      case '6':
+        startCountdown();
+        break;
+      case '7':
+        listCountdowns();
+        break;
+      case '8':
+        cancelCountdown();
+        break;
       case '0':
+        countdowns.cancelAll();
         console.log('Goodbye!');
         rl.close();
         break;
@@ -162,6 +190,48 @@ function getChartTopArtists() {
       data.result.forEach((artist, index) => {
         console.log(`${index + 1}. ${artist.name} (${artist.listeners.toLocaleString()} listeners)`);
       });
+    }
+    showMenu();
+  });
+}
+
+// Start a countdown timer
+function startCountdown() {
+  rl.question('Enter duration (e.g. 90, 45s, 5m, 1h30m, 1:30): ', (duration) => {
+    rl.question('Enter a label (optional): ', (label) => {
+      try {
+        const timer = countdowns.start({ duration, label });
+        console.log(`Started countdown ${timerName(timer)} for ${formatDuration(timer.durationMs)}.`);
+      } catch (err) {
+        console.error('Error:', err.message);
+      }
+      showMenu();
+    });
+  });
+}
+
+// List active countdowns
+function listCountdowns() {
+  const timers = countdowns.list();
+  if (timers.length === 0) {
+    console.log('\nNo active countdowns.');
+  } else {
+    console.log('\nActive countdowns:');
+    timers.forEach((timer) => {
+      console.log(`${timerName(timer)} - ${formatDuration(countdowns.remaining(timer.id))} remaining`);
+    });
+  }
+  showMenu();
+}
+
+// Cancel a countdown
+function cancelCountdown() {
+  rl.question('Enter countdown ID to cancel: ', (input) => {
+    const id = input.trim().replace(/^#/, '');
+    if (countdowns.cancel(id)) {
+      console.log(`Cancelled countdown #${id}.`);
+    } else {
+      console.log(`No active countdown with ID ${id}.`);
     }
     showMenu();
   });
