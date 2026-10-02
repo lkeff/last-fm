@@ -8,9 +8,11 @@ primary_region = "arn"
 
 [env]
   NODE_ENV = "production"
+  COUNTDOWN_STORE_PATH = "/data/countdowns.json"
 
-[processes]
-  app = "node discord-bot.js"
+[mounts]
+  source = "countdown_data"
+  destination = "/data"
 
 [[vm]]
   size = "shared-cpu-1x"

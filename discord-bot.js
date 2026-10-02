@@ -4,6 +4,8 @@
  *
  * Required env: DISCORD_TOKEN
  * Optional env: DISCORD_GUILD_ID (register commands to one guild for instant updates),
+ *               LASTFM_API_KEY (enables /countdown nowplaying),
+ *               COUNTDOWN_STORE_PATH (default ./data/countdowns.json; timers survive restarts),
  *               COUNTDOWN_ALERTS (comma-separated seconds, default 60,30,10),
  *               COUNTDOWN_MAX_HOURS (default 24), COUNTDOWN_MAX_PER_USER (default 5)
  */
@@ -16,7 +18,10 @@ const {
   MessageFlags,
   SlashCommandBuilder
 } = require('discord.js')
+const LastFM = require('./index.js')
 const { CountdownManager, formatDuration } = require('./utils/countdown')
+const { JsonFileStore } = require('./utils/countdown-store')
+const { nowPlayingTrack } = require('./utils/now-playing')
 
 const token = process.env.DISCORD_TOKEN
 if (!token) {
@@ -32,8 +37,11 @@ const alertsAt = (process.env.COUNTDOWN_ALERTS || '60,30,10')
 const countdowns = new CountdownManager({
   alertsAt,
   maxDurationMs: (Number(process.env.COUNTDOWN_MAX_HOURS) || 24) * 60 * 60 * 1000,
-  maxPerOwner: Number(process.env.COUNTDOWN_MAX_PER_USER) || 5
+  maxPerOwner: Number(process.env.COUNTDOWN_MAX_PER_USER) || 5,
+  store: new JsonFileStore(process.env.COUNTDOWN_STORE_PATH || 'data/countdowns.json')
 })
+
+const lastfm = process.env.LASTFM_API_KEY ? new LastFM(process.env.LASTFM_API_KEY) : null
 
 const countdownCommand = new SlashCommandBuilder()
   .setName('countdown')
@@ -49,6 +57,14 @@ const countdownCommand = new SlashCommandBuilder()
       .setName('label')
       .setDescription('What the countdown is for')
       .setMaxLength(100)))
+  .addSubcommand(sub => sub
+    .setName('nowplaying')
+    .setDescription('Count down the length of the track a Last.fm user is playing')
+    .addStringOption(opt => opt
+      .setName('user')
+      .setDescription('Last.fm username')
+      .setRequired(true)
+      .setMaxLength(64)))
   .addSubcommand(sub => sub
     .setName('list')
     .setDescription('List active countdowns in this channel'))
@@ -87,9 +103,10 @@ countdowns.on('alert', (timer, remainingMs) => {
   })
 })
 
-countdowns.on('finish', (timer) => {
+countdowns.on('finish', (timer, { missed }) => {
+  const suffix = missed ? ` (ended <t:${unixSeconds(timer.endsAt)}:R> while the bot was offline)` : ''
   sendToChannel(timer, {
-    content: `<@${timer.ownerId}> Countdown ${timerName(timer)} is done!`,
+    content: `<@${timer.ownerId}> Countdown ${timerName(timer)} is done!${suffix}`,
     allowedMentions: { users: [timer.ownerId] }
   })
 })
@@ -103,6 +120,23 @@ async function handleStart (interaction) {
   })
   await interaction.reply({
     content: `Countdown ${timerName(timer)} started for ${formatDuration(timer.durationMs)}, ends <t:${unixSeconds(timer.endsAt)}:R>.`,
+    allowedMentions: { parse: [] }
+  })
+}
+
+async function handleNowPlaying (interaction) {
+  if (!lastfm) throw new Error('LASTFM_API_KEY is not configured for this bot')
+  const user = interaction.options.getString('user', true)
+  await interaction.deferReply()
+  const track = await nowPlayingTrack(lastfm, user)
+  const timer = countdowns.start({
+    duration: track.durationMs,
+    label: `${track.artistName} - ${track.name}`,
+    ownerId: interaction.user.id,
+    channelId: interaction.channelId
+  })
+  await interaction.editReply({
+    content: `Countdown ${timerName(timer)} started for ${user}'s track (${formatDuration(timer.durationMs)}, full length from now), ends <t:${unixSeconds(timer.endsAt)}:R>.`,
     allowedMentions: { parse: [] }
   })
 }
@@ -137,6 +171,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     await readyClient.application.commands.set(commands)
   }
   console.log(`Logged in as ${readyClient.user.tag}; /countdown registered ${guildId ? `to guild ${guildId}` : 'globally'}.`)
+  const { restored, missed } = countdowns.restore()
+  if (restored || missed) console.log(`Restored ${restored} countdown(s); ${missed} ended while offline.`)
 })
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -144,18 +180,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     switch (interaction.options.getSubcommand()) {
       case 'start': return await handleStart(interaction)
+      case 'nowplaying': return await handleNowPlaying(interaction)
       case 'list': return await handleList(interaction)
       case 'cancel': return await handleCancel(interaction)
     }
   } catch (err) {
     const payload = { content: `Error: ${err.message}`, flags: MessageFlags.Ephemeral }
-    if (interaction.replied || interaction.deferred) await interaction.followUp(payload).catch(() => {})
+    if (interaction.deferred && !interaction.replied) await interaction.editReply({ content: payload.content }).catch(() => {})
+    else if (interaction.replied) await interaction.followUp(payload).catch(() => {})
     else await interaction.reply(payload).catch(() => {})
   }
 })
 
 function shutdown () {
-  countdowns.cancelAll()
+  countdowns.stop()
   client.destroy()
   process.exit(0)
 }

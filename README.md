@@ -177,17 +177,18 @@ which sets `NODE_ENV=development` to auto-open DevTools.
 
 Countdown timers share one engine (`utils/countdown.js`) and are available in both bots. Durations accept `90`, `45s`, `5m`, `1h30m` or `1:30`. Alerts fire at 60s, 30s and 10s remaining (configurable via `COUNTDOWN_ALERTS`).
 
-**CLI bot** (`npm run bot`): menu options 6 (start), 7 (list) and 8 (cancel).
+**CLI bot** (`npm run bot`): menu options 6 (start), 7 (list), 8 (cancel) and 9 (now-playing track).
 
 **Discord bot** (`npm run discord-bot`, requires `DISCORD_TOKEN`):
 
 | Command | Description |
 | --- | --- |
 | `/countdown start duration:<d> [label]` | Start a countdown in the current channel |
+| `/countdown nowplaying user:<lastfm user>` | Count down the length of the track that user is scrobbling (needs `LASTFM_API_KEY`) |
 | `/countdown list` | List active countdowns in the channel |
 | `/countdown cancel id:<n>` | Cancel one of your own countdowns |
 
-Set `DISCORD_GUILD_ID` to register the command to a single server instantly; otherwise it is registered globally. Limits: `COUNTDOWN_MAX_HOURS` (default 24) and `COUNTDOWN_MAX_PER_USER` (default 5). Timers are held in memory and are cleared when the bot restarts.
+Set `DISCORD_GUILD_ID` to register the command to a single server instantly; otherwise it is registered globally. Limits: `COUNTDOWN_MAX_HOURS` (default 24) and `COUNTDOWN_MAX_PER_USER` (default 5). The Discord bot saves active timers to `COUNTDOWN_STORE_PATH` (default `data/countdowns.json`) and restores them on startup; timers that ended while it was offline are announced as missed. Last.fm does not expose playback position, so the now-playing countdown starts from the full track length at the time of the command.
 
 Run the unit tests with `npm run test:unit` and lint with `npm run lint`.
 
@@ -199,6 +200,7 @@ On [fly.io](https://fly.io) (worker app, no public HTTP port):
 
 ```bash
 fly launch --no-deploy --copy-config   # first time only; edit `app` in fly.toml if the name is taken
+fly volumes create countdown_data --size 1 --region arn   # persists timers across deploys
 fly secrets set DISCORD_TOKEN=... LASTFM_API_KEY=...
 fly deploy
 fly logs
