@@ -8,6 +8,7 @@ require('dotenv').config();
 const LastFM = require('./index.js');
 const readline = require('readline');
 const { CountdownManager, formatDuration } = require('./utils/countdown');
+const { nowPlayingTrack } = require('./utils/now-playing');
 
 // Set LASTFM_API_KEY in .env (see .env.example)
 // Get one from: https://www.last.fm/api/account/create
@@ -48,6 +49,7 @@ function showMenu() {
   console.log('6. Start a countdown timer');
   console.log('7. List active countdowns');
   console.log('8. Cancel a countdown');
+  console.log("9. Count down a Last.fm user's now-playing track");
   console.log('0. Exit');
   
   rl.question('\nEnter your choice: ', (choice) => {
@@ -75,6 +77,9 @@ function showMenu() {
         break;
       case '8':
         cancelCountdown();
+        break;
+      case '9':
+        nowPlayingCountdown();
         break;
       case '0':
         countdowns.cancelAll();
@@ -237,6 +242,19 @@ function cancelCountdown() {
       console.log(`No active countdown with ID ${id}.`);
     }
     showMenu();
+  });
+}
+
+// Count down the length of a user's now-playing track
+function nowPlayingCountdown() {
+  rl.question('Enter Last.fm username: ', (user) => {
+    nowPlayingTrack(lastfm, user)
+      .then((track) => {
+        const timer = countdowns.start({ duration: track.durationMs, label: `${track.artistName} - ${track.name}` });
+        console.log(`Started countdown ${timerName(timer)} for ${formatDuration(timer.durationMs)} (full track length from now).`);
+      })
+      .catch((err) => console.error('Error:', err.message))
+      .finally(showMenu);
   });
 }
 

@@ -79,7 +79,7 @@
     "bot": "node bot.js",
     "discord-bot": "node discord-bot.js",
     "test:unit": "node --test test/*.test.js",
-    "lint": "eslint bot.js discord-bot.js utils/countdown.js test"
+    "lint": "eslint bot.js discord-bot.js utils/countdown.js utils/countdown-store.js utils/now-playing.js test"
   },
   "build": {
     "appId": "com.feross.lastfm",

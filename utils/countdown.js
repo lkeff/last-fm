@@ -77,8 +77,9 @@ function formatDuration (ms) {
  * Events:
  *  - 'start'  (timer)
  *  - 'alert'  (timer, remainingMs)  fired at each configured threshold
- *  - 'finish' (timer)
+ *  - 'finish' (timer, { missed })  missed=true when it ended while offline (see restore)
  *  - 'cancel' (timer)
+ *  - 'error'  (err)                 persistence failures
  */
 class CountdownManager extends EventEmitter {
   /**
@@ -86,6 +87,8 @@ class CountdownManager extends EventEmitter {
    * @param {number[]} [opts.alertsAt] seconds-remaining thresholds that emit 'alert'
    * @param {number} [opts.maxDurationMs]
    * @param {number} [opts.maxPerOwner]
+   * @param {{ load: () => { timers: Object[], nextId?: number }, save: (state: { timers: Object[], nextId: number }) => void }} [opts.store]
+   *   persistence backend; call restore() once listeners are attached
    */
   constructor (opts = {}) {
     super()
@@ -94,6 +97,7 @@ class CountdownManager extends EventEmitter {
       .sort((a, b) => b - a)
     this.maxDurationMs = opts.maxDurationMs || DEFAULT_MAX_DURATION_MS
     this.maxPerOwner = opts.maxPerOwner || DEFAULT_MAX_PER_OWNER
+    this.store = opts.store || null
     this._timers = new Map()
     this._nextId = 1
   }
@@ -128,20 +132,85 @@ class CountdownManager extends EventEmitter {
       endsAt: now + durationMs
     }
 
+    this._schedule(timer)
+    try {
+      this._save()
+    } catch (err) {
+      this._timers.get(timer.id).handles.forEach(clearTimeout)
+      this._timers.delete(timer.id)
+      throw new Error(`Could not save countdown: ${err.message}`)
+    }
+    this.emit('start', { ...timer })
+    return { ...timer }
+  }
+
+  /**
+   * Re-arm timers from the store. Timers that ended while offline emit
+   * 'finish' immediately with a second `{ missed: true }` argument.
+   * @returns {{ restored: number, missed: number }}
+   */
+  restore () {
+    if (!this.store) return { restored: 0, missed: 0 }
+    const now = Date.now()
+    let restored = 0
+    let missed = 0
+    const state = this.store.load()
+    if (Number.isInteger(state.nextId)) this._nextId = Math.max(this._nextId, state.nextId)
+    for (const saved of state.timers || []) {
+      const timer = {
+        id: Number(saved.id),
+        label: String(saved.label || ''),
+        ownerId: saved.ownerId ?? null,
+        channelId: saved.channelId ?? null,
+        durationMs: Number(saved.durationMs),
+        startedAt: Number(saved.startedAt),
+        endsAt: Number(saved.endsAt)
+      }
+      if (!Number.isInteger(timer.id) || !Number.isFinite(timer.endsAt) || this._timers.has(timer.id)) continue
+      this._nextId = Math.max(this._nextId, timer.id + 1)
+      if (timer.endsAt <= now) {
+        missed++
+        this.emit('finish', { ...timer }, { missed: true })
+      } else {
+        restored++
+        this._schedule(timer)
+      }
+    }
+    this._persist()
+    return { restored, missed }
+  }
+
+  _schedule (timer) {
+    const remainingMs = timer.endsAt - Date.now()
     const handles = []
     for (const seconds of this.alertsAt) {
-      const remainingMs = seconds * SECOND
-      if (remainingMs >= durationMs) continue
-      handles.push(setTimeout(() => this.emit('alert', { ...timer }, remainingMs), durationMs - remainingMs))
+      const alertMs = seconds * SECOND
+      if (alertMs >= timer.durationMs || alertMs >= remainingMs) continue
+      handles.push(setTimeout(() => this.emit('alert', { ...timer }, alertMs), remainingMs - alertMs))
     }
     handles.push(setTimeout(() => {
       this._timers.delete(timer.id)
-      this.emit('finish', { ...timer })
-    }, durationMs))
-
+      this._persist()
+      this.emit('finish', { ...timer }, { missed: false })
+    }, remainingMs))
     this._timers.set(timer.id, { timer, handles })
-    this.emit('start', { ...timer })
-    return { ...timer }
+  }
+
+  _save () {
+    if (!this.store) return
+    this.store.save({
+      nextId: this._nextId,
+      timers: [...this._timers.values()].map(entry => ({ ...entry.timer }))
+    })
+  }
+
+  _persist () {
+    try {
+      this._save()
+    } catch (err) {
+      if (this.listenerCount('error') > 0) this.emit('error', err)
+      else console.error('Failed to persist countdowns:', err.message)
+    }
   }
 
   /**
@@ -154,12 +223,22 @@ class CountdownManager extends EventEmitter {
     if (ownerId !== undefined && entry.timer.ownerId !== ownerId) return false
     entry.handles.forEach(clearTimeout)
     this._timers.delete(entry.timer.id)
+    this._persist()
     this.emit('cancel', { ...entry.timer })
     return true
   }
 
   cancelAll () {
     for (const id of [...this._timers.keys()]) this.cancel(id)
+  }
+
+  /**
+   * Clear in-memory timeouts without touching the store, so timers can be
+   * restored on the next start.
+   */
+  stop () {
+    for (const entry of this._timers.values()) entry.handles.forEach(clearTimeout)
+    this._timers.clear()
   }
 
   get (id) {
