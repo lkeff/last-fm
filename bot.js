@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const LastFM = require('./index.js');
 const readline = require('readline');
-const { CountdownManager, formatDuration } = require('./utils/countdown');
+const { CountdownManager, countdownOptionsFromEnv, formatDuration } = require('./utils/countdown');
 const { nowPlayingTrack } = require('./utils/now-playing');
 
 // Set LASTFM_API_KEY in .env (see .env.example)
@@ -18,7 +18,8 @@ const API_KEY = process.env.LASTFM_API_KEY || PLACEHOLDER_KEY;
 // Create a Last.fm client instance
 const lastfm = new LastFM(API_KEY);
 
-const countdowns = new CountdownManager();
+const countdowns = new CountdownManager(countdownOptionsFromEnv());
+const CLI_OWNER = 'cli';
 
 function timerName(timer) {
   return timer.label ? `#${timer.id} "${timer.label}"` : `#${timer.id}`;
@@ -37,6 +38,7 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
+rl.on('close', () => countdowns.cancelAll());
 
 // Main menu function
 function showMenu() {
@@ -208,7 +210,7 @@ function startCountdown() {
   rl.question('Enter duration (e.g. 90, 45s, 5m, 1h30m, 1:30): ', (duration) => {
     rl.question('Enter a label (optional): ', (label) => {
       try {
-        const timer = countdowns.start({ duration, label });
+        const timer = countdowns.start({ duration, label, ownerId: CLI_OWNER });
         console.log(`Started countdown ${timerName(timer)} for ${formatDuration(timer.durationMs)}.`);
       } catch (err) {
         console.error('Error:', err.message);
@@ -250,7 +252,7 @@ function nowPlayingCountdown() {
   rl.question('Enter Last.fm username: ', (user) => {
     nowPlayingTrack(lastfm, user)
       .then((track) => {
-        const timer = countdowns.start({ duration: track.durationMs, label: `${track.artistName} - ${track.name}` });
+        const timer = countdowns.start({ duration: track.durationMs, label: `${track.artistName} - ${track.name}`, ownerId: CLI_OWNER });
         console.log(`Started countdown ${timerName(timer)} for ${formatDuration(timer.durationMs)} (full track length from now).`);
       })
       .catch((err) => console.error('Error:', err.message))

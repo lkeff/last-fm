@@ -16,10 +16,11 @@ const {
   Events,
   GatewayIntentBits,
   MessageFlags,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  escapeMarkdown
 } = require('discord.js')
 const LastFM = require('./index.js')
-const { CountdownManager, formatDuration } = require('./utils/countdown')
+const { CountdownManager, countdownOptionsFromEnv, formatDuration } = require('./utils/countdown')
 const { JsonFileStore } = require('./utils/countdown-store')
 const { nowPlayingTrack } = require('./utils/now-playing')
 
@@ -29,17 +30,12 @@ if (!token) {
   process.exit(1)
 }
 
-const alertsAt = (process.env.COUNTDOWN_ALERTS || '60,30,10')
-  .split(',')
-  .map(s => Number(s.trim()))
-  .filter(n => Number.isFinite(n) && n > 0)
-
 const countdowns = new CountdownManager({
-  alertsAt,
-  maxDurationMs: (Number(process.env.COUNTDOWN_MAX_HOURS) || 24) * 60 * 60 * 1000,
-  maxPerOwner: Number(process.env.COUNTDOWN_MAX_PER_USER) || 5,
+  ...countdownOptionsFromEnv(),
   store: new JsonFileStore(process.env.COUNTDOWN_STORE_PATH || 'data/countdowns.json')
 })
+
+const DISCORD_MESSAGE_LIMIT = 2000
 
 const lastfm = process.env.LASTFM_API_KEY ? new LastFM(process.env.LASTFM_API_KEY) : null
 
@@ -80,7 +76,7 @@ const countdownCommand = new SlashCommandBuilder()
 const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 
 function timerName (timer) {
-  return timer.label ? `#${timer.id} **${timer.label}**` : `#${timer.id}`
+  return timer.label ? `#${timer.id} **${escapeMarkdown(timer.label, { heading: true, bulletedList: true, numberedList: true, maskedLink: true })}**` : `#${timer.id}`
 }
 
 function unixSeconds (ms) {
@@ -143,11 +139,17 @@ async function handleNowPlaying (interaction) {
 
 async function handleList (interaction) {
   const timers = countdowns.list({ channelId: interaction.channelId })
-  const content = timers.length === 0
-    ? 'No active countdowns in this channel.'
-    : timers
-      .map(t => `${timerName(t)} by <@${t.ownerId}>, ends <t:${unixSeconds(t.endsAt)}:R>`)
-      .join('\n')
+  const lines = timers.map(t => `${timerName(t)} by <@${t.ownerId}>, ends <t:${unixSeconds(t.endsAt)}:R>`)
+  let content = lines.length === 0 ? 'No active countdowns in this channel.' : ''
+  for (const [i, line] of lines.entries()) {
+    const more = `\n...and ${lines.length - i} more`
+    const reserved = i < lines.length - 1 ? `\n...and ${lines.length - i - 1} more`.length : 0
+    if (content.length + 1 + line.length + reserved > DISCORD_MESSAGE_LIMIT) {
+      content += more
+      break
+    }
+    content += (content ? '\n' : '') + line
+  }
   await interaction.reply({ content, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } })
 }
 
