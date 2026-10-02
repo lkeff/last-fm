@@ -16,22 +16,25 @@ class JsonFileStore {
     try {
       raw = fs.readFileSync(this.filePath, 'utf8')
     } catch (err) {
-      if (err.code === 'ENOENT') return []
+      if (err.code === 'ENOENT') return { timers: [] }
       throw err
     }
     try {
       const data = JSON.parse(raw)
-      return Array.isArray(data.timers) ? data.timers : []
+      return {
+        timers: Array.isArray(data.timers) ? data.timers : [],
+        nextId: Number.isInteger(data.nextId) ? data.nextId : undefined
+      }
     } catch (err) {
       console.error(`Ignoring unreadable countdown store ${this.filePath}:`, err.message)
-      return []
+      return { timers: [] }
     }
   }
 
-  save (timers) {
+  save ({ timers, nextId }) {
     fs.mkdirSync(path.dirname(this.filePath), { recursive: true })
     const tmp = `${this.filePath}.${process.pid}.tmp`
-    fs.writeFileSync(tmp, JSON.stringify({ version: 1, timers }, null, 2))
+    fs.writeFileSync(tmp, JSON.stringify({ version: 1, nextId, timers }, null, 2))
     fs.renameSync(tmp, this.filePath)
   }
 }

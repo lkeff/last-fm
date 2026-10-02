@@ -87,7 +87,7 @@ class CountdownManager extends EventEmitter {
    * @param {number[]} [opts.alertsAt] seconds-remaining thresholds that emit 'alert'
    * @param {number} [opts.maxDurationMs]
    * @param {number} [opts.maxPerOwner]
-   * @param {{ load: () => Object[], save: (timers: Object[]) => void }} [opts.store]
+   * @param {{ load: () => { timers: Object[], nextId?: number }, save: (state: { timers: Object[], nextId: number }) => void }} [opts.store]
    *   persistence backend; call restore() once listeners are attached
    */
   constructor (opts = {}) {
@@ -133,7 +133,13 @@ class CountdownManager extends EventEmitter {
     }
 
     this._schedule(timer)
-    this._persist()
+    try {
+      this._save()
+    } catch (err) {
+      this._timers.get(timer.id).handles.forEach(clearTimeout)
+      this._timers.delete(timer.id)
+      throw new Error(`Could not save countdown: ${err.message}`)
+    }
     this.emit('start', { ...timer })
     return { ...timer }
   }
@@ -148,7 +154,9 @@ class CountdownManager extends EventEmitter {
     const now = Date.now()
     let restored = 0
     let missed = 0
-    for (const saved of this.store.load()) {
+    const state = this.store.load()
+    if (Number.isInteger(state.nextId)) this._nextId = Math.max(this._nextId, state.nextId)
+    for (const saved of state.timers || []) {
       const timer = {
         id: Number(saved.id),
         label: String(saved.label || ''),
@@ -188,10 +196,17 @@ class CountdownManager extends EventEmitter {
     this._timers.set(timer.id, { timer, handles })
   }
 
-  _persist () {
+  _save () {
     if (!this.store) return
+    this.store.save({
+      nextId: this._nextId,
+      timers: [...this._timers.values()].map(entry => ({ ...entry.timer }))
+    })
+  }
+
+  _persist () {
     try {
-      this.store.save([...this._timers.values()].map(entry => ({ ...entry.timer })))
+      this._save()
     } catch (err) {
       if (this.listenerCount('error') > 0) this.emit('error', err)
       else console.error('Failed to persist countdowns:', err.message)

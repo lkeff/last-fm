@@ -162,21 +162,33 @@ async function handleCancel (interaction) {
   }
 }
 
+let timersRestored = false
+
 client.once(Events.ClientReady, async (readyClient) => {
+  const { restored, missed } = countdowns.restore()
+  timersRestored = true
+  if (restored || missed) console.log(`Restored ${restored} countdown(s); ${missed} ended while offline.`)
+
   const guildId = process.env.DISCORD_GUILD_ID
   const commands = [countdownCommand.toJSON()]
-  if (guildId) {
+  try {
     await readyClient.application.commands.set(commands, guildId)
-  } else {
-    await readyClient.application.commands.set(commands)
+  } catch (err) {
+    console.error(`Failed to register /countdown ${guildId ? `to guild ${guildId}` : 'globally'}: ${err.message}`)
+    if (guildId) console.error('Check that DISCORD_GUILD_ID is a server ID and the bot was invited with the applications.commands scope.')
+    countdowns.stop()
+    client.destroy()
+    process.exit(1)
   }
   console.log(`Logged in as ${readyClient.user.tag}; /countdown registered ${guildId ? `to guild ${guildId}` : 'globally'}.`)
-  const { restored, missed } = countdowns.restore()
-  if (restored || missed) console.log(`Restored ${restored} countdown(s); ${missed} ended while offline.`)
 })
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand() || interaction.commandName !== 'countdown') return
+  if (!timersRestored) {
+    await interaction.reply({ content: 'The bot is still starting up, try again in a few seconds.', flags: MessageFlags.Ephemeral }).catch(() => {})
+    return
+  }
   try {
     switch (interaction.options.getSubcommand()) {
       case 'start': return await handleStart(interaction)
