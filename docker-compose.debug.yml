@@ -9,4 +9,4 @@ services:
       NODE_ENV: development
     command: ["node", "--inspect=0.0.0.0:9229", "discord-bot.js"]
     ports:
-      - 9229:9229
+      - 127.0.0.1:9229:9229
