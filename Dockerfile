@@ -1,9 +1,14 @@
-FROM openjdk:8-jdk-alpine
-VOLUME /tmp
-ARG JAVA_OPTS
-ENV JAVA_OPTS=$JAVA_OPTS
-COPY lastfm.jar lastfm.jar
-EXPOSE 4000
-ENTRYPOINT exec java $JAVA_OPTS -jar lastfm.jar
-# For Spring-Boot project, use the entrypoint below to reduce Tomcat startup time.
-#ENTRYPOINT exec java $JAVA_OPTS -Djava.security.egd=file:/dev/./urandom -jar lastfm.jar
+FROM node:20-slim
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package.json yarn.lock ./
+RUN yarn install --production --frozen-lockfile --ignore-scripts --ignore-engines \
+  && yarn cache clean
+
+COPY index.js bot.js discord-bot.js ./
+COPY utils ./utils
+
+USER node
+CMD ["node", "discord-bot.js"]

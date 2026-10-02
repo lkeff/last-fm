@@ -1,0 +1,17 @@
+# Discord bot worker: outbound gateway connection only, no public HTTP service.
+# Set secrets with: fly secrets set DISCORD_TOKEN=... LASTFM_API_KEY=...
+app = "lastfm-discord-bot"
+primary_region = "arn"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+
+[processes]
+  app = "node discord-bot.js"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

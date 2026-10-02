@@ -3,13 +3,16 @@
  * This script demonstrates how to use the Last.fm API client library
  */
 
+require('dotenv').config();
+
 const LastFM = require('./index.js');
 const readline = require('readline');
 const { CountdownManager, formatDuration } = require('./utils/countdown');
 
-// You need to provide your Last.fm API key here
+// Set LASTFM_API_KEY in .env (see .env.example)
 // Get one from: https://www.last.fm/api/account/create
-const API_KEY = 'YOUR_LAST_FM_API_KEY';
+const PLACEHOLDER_KEY = 'YOUR_LAST_FM_API_KEY';
+const API_KEY = process.env.LASTFM_API_KEY || PLACEHOLDER_KEY;
 
 // Create a Last.fm client instance
 const lastfm = new LastFM(API_KEY);
@@ -239,13 +242,12 @@ function cancelCountdown() {
 
 // Start the bot
 console.log('Starting Last.fm Bot...');
-console.log('NOTE: You need to set your Last.fm API key in the bot.js file');
-console.log('Get a free API key from: https://www.last.fm/api/account/create');
 
 // Check if API key is set
-if (API_KEY === 'YOUR_LAST_FM_API_KEY') {
-  console.log('\nWARNING: You need to edit bot.js and set your Last.fm API key first!');
-  console.log('The bot will run but API calls will fail until you set a valid API key.');
+if (API_KEY === PLACEHOLDER_KEY) {
+  console.log('\nWARNING: LASTFM_API_KEY is not set. Copy .env.example to .env and add your key.');
+  console.log('Get a free API key from: https://www.last.fm/api/account/create');
+  console.log('Countdown timers work without a key, but Last.fm lookups will fail.');
 }
 
 // Show the main menu
