@@ -189,7 +189,20 @@ Countdown timers share one engine (`utils/countdown.js`) and are available in bo
 
 Set `DISCORD_GUILD_ID` to register the command to a single server instantly; otherwise it is registered globally. Limits: `COUNTDOWN_MAX_HOURS` (default 24) and `COUNTDOWN_MAX_PER_USER` (default 5). Timers are held in memory and are cleared when the bot restarts.
 
-Run the unit tests with `npm run test:unit`.
+Run the unit tests with `npm run test:unit` and lint with `npm run lint`.
+
+### Deploying the Discord bot
+
+The `Dockerfile` runs `discord-bot.js` on Node 20. Locally: `docker compose up --build` (reads `.env`).
+
+On [fly.io](https://fly.io) (worker app, no public HTTP port):
+
+```bash
+fly launch --no-deploy --copy-config   # first time only; edit `app` in fly.toml if the name is taken
+fly secrets set DISCORD_TOKEN=... LASTFM_API_KEY=...
+fly deploy
+fly logs
+```
 
 ---
 
