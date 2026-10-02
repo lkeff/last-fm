@@ -580,6 +580,33 @@ class LastFM {
     })
   }
 
+  /**
+   * The track a user is currently scrobbling, or null if nothing is playing.
+   */
+  userNowPlaying (opts, cb) {
+    if (!opts.user) {
+      return cb(new Error('Missing required param: user'))
+    }
+    const params = {
+      method: 'user.getRecentTracks',
+      user: opts.user,
+      limit: 1
+    }
+    this._sendRequest(params, 'recenttracks', (err, data) => {
+      if (err) return cb(err)
+      const tracks = [].concat((data && data.track) || [])
+      const track = tracks.find(t => t['@attr'] && t['@attr'].nowplaying === 'true')
+      if (!track) return cb(null, null)
+      cb(null, {
+        type: 'track',
+        name: track.name,
+        artistName: (track.artist && (track.artist['#text'] || track.artist.name)) || '',
+        albumName: track.album && track.album['#text'],
+        images: track.image && this._parseImages(track.image)
+      })
+    })
+  }
+
   trackSimilar (opts, cb) {
     if (!opts.name || !opts.artistName) {
       return cb(new Error('Missing required params: name, artistName'))

@@ -6,6 +6,7 @@ dist/
 build/
 
 # Runtime data
+data/
 pids
 *.pid
 *.seed
