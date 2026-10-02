@@ -7,6 +7,7 @@ const HOUR = 60 * MINUTE
 const DEFAULT_ALERTS_SECONDS = [60, 30, 10]
 const DEFAULT_MAX_DURATION_MS = 24 * HOUR
 const DEFAULT_MAX_PER_OWNER = 5
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
 
 const UNIT_MS = new Map([['h', HOUR], ['m', MINUTE], ['s', SECOND]])
 
@@ -95,7 +96,7 @@ class CountdownManager extends EventEmitter {
     this.alertsAt = [...new Set(opts.alertsAt || DEFAULT_ALERTS_SECONDS)]
       .filter(s => Number.isFinite(s) && s > 0)
       .sort((a, b) => b - a)
-    this.maxDurationMs = opts.maxDurationMs || DEFAULT_MAX_DURATION_MS
+    this.maxDurationMs = Math.min(opts.maxDurationMs || DEFAULT_MAX_DURATION_MS, MAX_TIMEOUT_MS)
     this.maxPerOwner = opts.maxPerOwner || DEFAULT_MAX_PER_OWNER
     this.store = opts.store || null
     this._timers = new Map()
@@ -267,8 +268,24 @@ class CountdownManager extends EventEmitter {
   }
 }
 
+/**
+ * CountdownManager options from COUNTDOWN_ALERTS, COUNTDOWN_MAX_HOURS and COUNTDOWN_MAX_PER_USER.
+ * @param {Object} [env]
+ */
+function countdownOptionsFromEnv (env = process.env) {
+  return {
+    alertsAt: (env.COUNTDOWN_ALERTS || DEFAULT_ALERTS_SECONDS.join(','))
+      .split(',')
+      .map(s => Number(s.trim()))
+      .filter(n => Number.isFinite(n) && n > 0),
+    maxDurationMs: (Number(env.COUNTDOWN_MAX_HOURS) || DEFAULT_MAX_DURATION_MS / HOUR) * HOUR,
+    maxPerOwner: Number(env.COUNTDOWN_MAX_PER_USER) || DEFAULT_MAX_PER_OWNER
+  }
+}
+
 module.exports = {
   CountdownManager,
+  countdownOptionsFromEnv,
   parseDuration,
   formatDuration
 }

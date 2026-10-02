@@ -1,6 +1,6 @@
 const { test, describe, beforeEach, afterEach, mock } = require('node:test')
 const assert = require('node:assert/strict')
-const { CountdownManager, parseDuration, formatDuration } = require('../utils/countdown')
+const { CountdownManager, countdownOptionsFromEnv, parseDuration, formatDuration } = require('../utils/countdown')
 
 describe('parseDuration', () => {
   test('parses plain seconds, units and clock notation', () => {
@@ -111,4 +111,13 @@ describe('CountdownManager', () => {
     limited.cancelAll()
     assert.deepEqual(limited.list(), [])
   })
+})
+
+test('countdownOptionsFromEnv reads env with defaults, and max duration is clamped to the setTimeout limit', () => {
+  assert.deepEqual(countdownOptionsFromEnv({}), { alertsAt: [60, 30, 10], maxDurationMs: 24 * 3600000, maxPerOwner: 5 })
+  assert.deepEqual(
+    countdownOptionsFromEnv({ COUNTDOWN_ALERTS: '120, x, 5', COUNTDOWN_MAX_HOURS: '2', COUNTDOWN_MAX_PER_USER: '3' }),
+    { alertsAt: [120, 5], maxDurationMs: 2 * 3600000, maxPerOwner: 3 }
+  )
+  assert.equal(new CountdownManager({ maxDurationMs: 1000 * 3600000 }).maxDurationMs, 2 ** 31 - 1)
 })
