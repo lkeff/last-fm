@@ -103,7 +103,7 @@ countdowns.on('finish', (timer, { missed }) => {
   const suffix = missed ? ` (ended <t:${unixSeconds(timer.endsAt)}:R> while the bot was offline)` : ''
   sendToChannel(timer, {
     content: `<@${timer.ownerId}> Countdown ${timerName(timer)} is done!${suffix}`,
-    allowedMentions: { users: [timer.ownerId] }
+    allowedMentions: { parse: [], users: [timer.ownerId] }
   })
 })
 
@@ -200,8 +200,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   } catch (err) {
     const payload = { content: `Error: ${err.message}`, flags: MessageFlags.Ephemeral }
-    if (interaction.deferred && !interaction.replied) await interaction.editReply({ content: payload.content }).catch(() => {})
-    else if (interaction.replied) await interaction.followUp(payload).catch(() => {})
+    if (interaction.deferred && !interaction.replied) {
+      await interaction.deleteReply().catch(() => {})
+      await interaction.followUp(payload).catch(() => {})
+    } else if (interaction.replied) await interaction.followUp(payload).catch(() => {})
     else await interaction.reply(payload).catch(() => {})
   }
 })

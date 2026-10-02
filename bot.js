@@ -38,7 +38,11 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
-rl.on('close', () => countdowns.cancelAll());
+let rlClosed = false;
+rl.on('close', () => {
+  rlClosed = true;
+  countdowns.cancelAll();
+});
 
 // Main menu function
 function showMenu() {
@@ -252,11 +256,14 @@ function nowPlayingCountdown() {
   rl.question('Enter Last.fm username: ', (user) => {
     nowPlayingTrack(lastfm, user)
       .then((track) => {
+        if (rlClosed) return;
         const timer = countdowns.start({ duration: track.durationMs, label: `${track.artistName} - ${track.name}`, ownerId: CLI_OWNER });
         console.log(`Started countdown ${timerName(timer)} for ${formatDuration(timer.durationMs)} (full track length from now).`);
       })
       .catch((err) => console.error('Error:', err.message))
-      .finally(showMenu);
+      .finally(() => {
+        if (!rlClosed) showMenu();
+      });
   });
 }
 
