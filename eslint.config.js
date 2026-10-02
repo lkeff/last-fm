@@ -62,11 +62,13 @@ module.exports = [
   {
     files: [
       'bot.js',
+      'discord-bot.js',
       'index.js',
       'main.js',
       'preload.js',
       'renderer.js',
-      'utils/**'
+      'utils/**',
+      'test/**'
     ],
     languageOptions: {
       sourceType: 'script',
